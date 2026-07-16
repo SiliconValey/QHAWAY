@@ -1,0 +1,390 @@
+"""Repositorios de persistencia (AD-03: SQL a mano, sin ORM).
+
+Cada repositorio encapsula el acceso a una tabla. No hay lógica de dominio acá:
+las reglas de negocio viven en `qhaway.dominio`. Sí viven acá las reglas de
+persistencia (versionado de entregas, baja lógica, historial por fechas).
+
+Las escrituras se hacen dentro de una transacción abierta por el llamador
+(`db.transaccion`), para que un caso de uso agrupe varias inserciones de forma
+atómica (RNF-06).
+"""
+
+from __future__ import annotations
+
+import sqlite3
+from dataclasses import dataclass
+
+
+# ----------------------------------------------------------------------------
+# Ciclo
+# ----------------------------------------------------------------------------
+@dataclass(frozen=True)
+class Ciclo:
+    id: int
+    nombre: str
+    cantidad_preguntas: int
+    cantidad_exposiciones: int
+    presupuesto_mensual: float
+
+
+class CicloRepo:
+    def __init__(self, con: sqlite3.Connection) -> None:
+        self.con = con
+
+    def crear(
+        self,
+        nombre: str,
+        *,
+        cantidad_preguntas: int = 10,
+        cantidad_exposiciones: int = 2,
+        presupuesto_mensual: float = 20.0,
+    ) -> int:
+        cur = self.con.execute(
+            "INSERT INTO ciclo (nombre, cantidad_preguntas, cantidad_exposiciones, "
+            "presupuesto_mensual) VALUES (?, ?, ?, ?)",
+            (nombre, cantidad_preguntas, cantidad_exposiciones, presupuesto_mensual),
+        )
+        return int(cur.lastrowid)
+
+    def obtener(self, ciclo_id: int) -> Ciclo | None:
+        fila = self.con.execute(
+            "SELECT * FROM ciclo WHERE id = ?", (ciclo_id,)
+        ).fetchone()
+        return _a_ciclo(fila) if fila else None
+
+
+# ----------------------------------------------------------------------------
+# Grupo + Integrante (GRP-01, GRP-02, GRP-08)
+# ----------------------------------------------------------------------------
+@dataclass(frozen=True)
+class Grupo:
+    id: int
+    ciclo_id: int
+    codigo: str
+    nombre: str
+    proyecto: str
+    archivado: bool
+
+
+class GrupoRepo:
+    def __init__(self, con: sqlite3.Connection) -> None:
+        self.con = con
+
+    def crear(
+        self, ciclo_id: int, codigo: str, nombre: str, proyecto: str = ""
+    ) -> int:
+        cur = self.con.execute(
+            "INSERT INTO grupo (ciclo_id, codigo, nombre, proyecto) "
+            "VALUES (?, ?, ?, ?)",
+            (ciclo_id, codigo, nombre, proyecto),
+        )
+        return int(cur.lastrowid)
+
+    def archivar(self, grupo_id: int) -> None:
+        """Baja lógica (GRP-08): nunca se borra físicamente un grupo con historial."""
+        self.con.execute("UPDATE grupo SET archivado = 1 WHERE id = ?", (grupo_id,))
+
+    def listar(self, ciclo_id: int, *, incluir_archivados: bool = False) -> list[Grupo]:
+        sql = "SELECT * FROM grupo WHERE ciclo_id = ?"
+        if not incluir_archivados:
+            sql += " AND archivado = 0"
+        sql += " ORDER BY codigo"
+        return [_a_grupo(f) for f in self.con.execute(sql, (ciclo_id,)).fetchall()]
+
+    def obtener(self, grupo_id: int) -> Grupo | None:
+        fila = self.con.execute(
+            "SELECT * FROM grupo WHERE id = ?", (grupo_id,)
+        ).fetchone()
+        return _a_grupo(fila) if fila else None
+
+
+class IntegranteRepo:
+    def __init__(self, con: sqlite3.Connection) -> None:
+        self.con = con
+
+    def agregar(self, grupo_id: int, nombre: str, fecha_alta: str) -> int:
+        cur = self.con.execute(
+            "INSERT INTO integrante (grupo_id, nombre, fecha_alta) VALUES (?, ?, ?)",
+            (grupo_id, nombre, fecha_alta),
+        )
+        return int(cur.lastrowid)
+
+    def dar_baja(self, integrante_id: int, fecha_baja: str) -> None:
+        """GRP-02: baja con fecha; no se elimina, para reconstruir composiciones."""
+        self.con.execute(
+            "UPDATE integrante SET fecha_baja = ? WHERE id = ?",
+            (fecha_baja, integrante_id),
+        )
+
+    def composicion_en(self, grupo_id: int, fecha: str) -> list[str]:
+        """Integrantes vigentes del grupo en una fecha dada (GRP-02).
+
+        Vigente = alta <= fecha AND (sin baja OR baja > fecha).
+        """
+        filas = self.con.execute(
+            "SELECT nombre FROM integrante WHERE grupo_id = ? "
+            "AND fecha_alta <= ? AND (fecha_baja IS NULL OR fecha_baja > ?) "
+            "ORDER BY nombre",
+            (grupo_id, fecha, fecha),
+        ).fetchall()
+        return [f["nombre"] for f in filas]
+
+
+# ----------------------------------------------------------------------------
+# Entrega + Archivo (GRP-04)
+# ----------------------------------------------------------------------------
+@dataclass(frozen=True)
+class Entrega:
+    id: int
+    grupo_id: int
+    exposicion: int
+    version: int
+    fecha: str
+    vigente: bool
+    estado: str
+
+
+class EntregaRepo:
+    def __init__(self, con: sqlite3.Connection) -> None:
+        self.con = con
+
+    def crear_version(
+        self, grupo_id: int, exposicion: int, fecha: str, estado: str
+    ) -> Entrega:
+        """Inserta una nueva versión de entrega (GRP-04).
+
+        La versión es la siguiente correlativa para (grupo, exposición). La nueva
+        pasa a ser la vigente y las anteriores dejan de serlo (por defecto la
+        última cargada es vigente; el docente puede cambiarlo con `marcar_vigente`).
+        """
+        prev = self.con.execute(
+            "SELECT COALESCE(MAX(version), 0) AS m FROM entrega "
+            "WHERE grupo_id = ? AND exposicion = ?",
+            (grupo_id, exposicion),
+        ).fetchone()["m"]
+        nueva_version = prev + 1
+        # Las anteriores dejan de ser vigentes.
+        self.con.execute(
+            "UPDATE entrega SET vigente = 0 WHERE grupo_id = ? AND exposicion = ?",
+            (grupo_id, exposicion),
+        )
+        cur = self.con.execute(
+            "INSERT INTO entrega (grupo_id, exposicion, version, fecha, vigente, estado) "
+            "VALUES (?, ?, ?, ?, 1, ?)",
+            (grupo_id, exposicion, nueva_version, fecha, estado),
+        )
+        return Entrega(
+            id=int(cur.lastrowid),
+            grupo_id=grupo_id,
+            exposicion=exposicion,
+            version=nueva_version,
+            fecha=fecha,
+            vigente=True,
+            estado=estado,
+        )
+
+    def marcar_vigente(self, entrega_id: int) -> None:
+        """El docente designa manualmente la versión vigente (GRP-04)."""
+        fila = self.con.execute(
+            "SELECT grupo_id, exposicion FROM entrega WHERE id = ?", (entrega_id,)
+        ).fetchone()
+        if fila is None:
+            raise KeyError(f"No existe entrega {entrega_id}")
+        self.con.execute(
+            "UPDATE entrega SET vigente = 0 WHERE grupo_id = ? AND exposicion = ?",
+            (fila["grupo_id"], fila["exposicion"]),
+        )
+        self.con.execute(
+            "UPDATE entrega SET vigente = 1 WHERE id = ?", (entrega_id,)
+        )
+
+    def actualizar_estado(self, entrega_id: int, estado: str) -> None:
+        self.con.execute(
+            "UPDATE entrega SET estado = ? WHERE id = ?", (estado, entrega_id)
+        )
+
+    def vigente(self, grupo_id: int, exposicion: int) -> Entrega | None:
+        fila = self.con.execute(
+            "SELECT * FROM entrega WHERE grupo_id = ? AND exposicion = ? AND vigente = 1",
+            (grupo_id, exposicion),
+        ).fetchone()
+        return _a_entrega(fila) if fila else None
+
+    def historial(self, grupo_id: int, exposicion: int) -> list[Entrega]:
+        filas = self.con.execute(
+            "SELECT * FROM entrega WHERE grupo_id = ? AND exposicion = ? "
+            "ORDER BY version",
+            (grupo_id, exposicion),
+        ).fetchall()
+        return [_a_entrega(f) for f in filas]
+
+
+class ArchivoEntregaRepo:
+    def __init__(self, con: sqlite3.Connection) -> None:
+        self.con = con
+
+    def agregar(
+        self,
+        entrega_id: int,
+        tipo_artefacto: str,
+        ruta_relativa: str,
+        formato: str,
+        multiarchivo_confirmado: bool = False,
+    ) -> int:
+        cur = self.con.execute(
+            "INSERT INTO archivo_entrega (entrega_id, tipo_artefacto, ruta_relativa, "
+            "formato, multiarchivo_confirmado) VALUES (?, ?, ?, ?, ?)",
+            (entrega_id, tipo_artefacto, ruta_relativa, formato, int(multiarchivo_confirmado)),
+        )
+        return int(cur.lastrowid)
+
+    def de_entrega(self, entrega_id: int) -> list[sqlite3.Row]:
+        return self.con.execute(
+            "SELECT * FROM archivo_entrega WHERE entrega_id = ?", (entrega_id,)
+        ).fetchall()
+
+
+# ----------------------------------------------------------------------------
+# Snapshot de configuración (CFG-11)
+# ----------------------------------------------------------------------------
+class SnapshotRepo:
+    def __init__(self, con: sqlite3.Connection) -> None:
+        self.con = con
+
+    def crear(self, fecha: str, ruta_relativa: str, hash_: str) -> int:
+        cur = self.con.execute(
+            "INSERT INTO snapshot_config (fecha, ruta_relativa, hash) VALUES (?, ?, ?)",
+            (fecha, ruta_relativa, hash_),
+        )
+        return int(cur.lastrowid)
+
+
+# ----------------------------------------------------------------------------
+# Evaluación + Valoración
+# ----------------------------------------------------------------------------
+@dataclass(frozen=True)
+class Evaluacion:
+    id: int
+    entrega_id: int
+    snapshot_id: int | None
+    estado: str
+    nota_sugerida: int | None
+    nota_final: int | None
+    fecha_validacion: str | None
+
+
+class EvaluacionRepo:
+    def __init__(self, con: sqlite3.Connection) -> None:
+        self.con = con
+
+    def crear(
+        self, entrega_id: int, estado: str, snapshot_id: int | None = None
+    ) -> int:
+        cur = self.con.execute(
+            "INSERT INTO evaluacion (entrega_id, snapshot_id, estado) VALUES (?, ?, ?)",
+            (entrega_id, snapshot_id, estado),
+        )
+        return int(cur.lastrowid)
+
+    def fijar_nota_sugerida(self, evaluacion_id: int, nota: int) -> None:
+        self.con.execute(
+            "UPDATE evaluacion SET nota_sugerida = ? WHERE id = ?", (nota, evaluacion_id)
+        )
+
+    def validar(self, evaluacion_id: int, nota_final: int, fecha: str) -> None:
+        """Registra la nota final tras validación docente (EXP-03)."""
+        self.con.execute(
+            "UPDATE evaluacion SET nota_final = ?, fecha_validacion = ?, "
+            "estado = 'evaluacion_validada' WHERE id = ?",
+            (nota_final, fecha, evaluacion_id),
+        )
+
+    def actualizar_estado(self, evaluacion_id: int, estado: str) -> None:
+        self.con.execute(
+            "UPDATE evaluacion SET estado = ? WHERE id = ?", (estado, evaluacion_id)
+        )
+
+    def obtener(self, evaluacion_id: int) -> Evaluacion | None:
+        fila = self.con.execute(
+            "SELECT * FROM evaluacion WHERE id = ?", (evaluacion_id,)
+        ).fetchone()
+        return _a_evaluacion(fila) if fila else None
+
+
+class ValoracionRepo:
+    def __init__(self, con: sqlite3.Connection) -> None:
+        self.con = con
+
+    def registrar(
+        self,
+        evaluacion_id: int,
+        criterio_id: str,
+        nivel_ia: str | None,
+        nivel_final: str | None,
+    ) -> None:
+        self.con.execute(
+            "INSERT INTO valoracion (evaluacion_id, criterio_id, nivel_ia, nivel_final) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(evaluacion_id, criterio_id) DO UPDATE SET "
+            "nivel_ia = excluded.nivel_ia, nivel_final = excluded.nivel_final",
+            (evaluacion_id, criterio_id, nivel_ia, nivel_final),
+        )
+
+    def de_evaluacion(self, evaluacion_id: int) -> dict[str, dict[str, str | None]]:
+        filas = self.con.execute(
+            "SELECT criterio_id, nivel_ia, nivel_final FROM valoracion "
+            "WHERE evaluacion_id = ?",
+            (evaluacion_id,),
+        ).fetchall()
+        return {
+            f["criterio_id"]: {"nivel_ia": f["nivel_ia"], "nivel_final": f["nivel_final"]}
+            for f in filas
+        }
+
+
+# ----------------------------------------------------------------------------
+# Conversores fila -> dataclass
+# ----------------------------------------------------------------------------
+def _a_ciclo(f: sqlite3.Row) -> Ciclo:
+    return Ciclo(
+        id=f["id"],
+        nombre=f["nombre"],
+        cantidad_preguntas=f["cantidad_preguntas"],
+        cantidad_exposiciones=f["cantidad_exposiciones"],
+        presupuesto_mensual=f["presupuesto_mensual"],
+    )
+
+
+def _a_grupo(f: sqlite3.Row) -> Grupo:
+    return Grupo(
+        id=f["id"],
+        ciclo_id=f["ciclo_id"],
+        codigo=f["codigo"],
+        nombre=f["nombre"],
+        proyecto=f["proyecto"],
+        archivado=bool(f["archivado"]),
+    )
+
+
+def _a_entrega(f: sqlite3.Row) -> Entrega:
+    return Entrega(
+        id=f["id"],
+        grupo_id=f["grupo_id"],
+        exposicion=f["exposicion"],
+        version=f["version"],
+        fecha=f["fecha"],
+        vigente=bool(f["vigente"]),
+        estado=f["estado"],
+    )
+
+
+def _a_evaluacion(f: sqlite3.Row) -> Evaluacion:
+    return Evaluacion(
+        id=f["id"],
+        entrega_id=f["entrega_id"],
+        snapshot_id=f["snapshot_id"],
+        estado=f["estado"],
+        nota_sugerida=f["nota_sugerida"],
+        nota_final=f["nota_final"],
+        fecha_validacion=f["fecha_validacion"],
+    )
