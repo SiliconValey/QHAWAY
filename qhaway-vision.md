@@ -1,9 +1,16 @@
 # QHAWAY — Documento de Visión y Alcance
 
-**Versión:** 1.0
+**Versión:** 1.1
 **Fecha:** Julio 2026
 **Autor:** Christian — ISFT N.º 179
 **Licencia del proyecto:** MIT (repositorio público a partir de la Fase 3)
+
+**Historial de cambios**
+
+| Versión | Fecha | Cambios |
+|---------|-------|---------|
+| 1.0 | Julio 2026 | Versión inicial. |
+| 1.1 | Julio 2026 | Precisión de la fuente de la convención de nomenclatura (§4); respaldo explícito de la garantía del flujo de validación con EXP-03 del SRS (§6); referencia precisa al mecanismo de la nota sugerida en el SRS (§7); glosas de ISFT, SRS, IEEE 830 y Qt Designer en su primera mención (§1–2). |
 
 ---
 
@@ -11,15 +18,15 @@
 
 **QHAWAY** (del quechua *qhaway*: observar, examinar) es un asistente de corrección de código abierto que le devuelve al docente el tiempo para enseñar. Es una aplicación de escritorio (Python/PySide6) que asiste la evaluación de proyectos grupales de ingeniería de software: analiza las entregas de los alumnos contra una rúbrica definida por el docente y un proyecto modelo de referencia, y produce un borrador de corrección completo — observaciones fundamentadas por criterio, verificación de completitud, análisis de consistencia entre artefactos, una nota sugerida trazable y un cuestionario de defensa personalizado para la exposición oral.
 
-El problema que ataca es concreto: corregir a fondo un proyecto grupal multi-artefacto lleva alrededor de una hora, y lo más costoso no es detectar los problemas sino redactar la devolución. Con trece grupos y dos exposiciones anuales, el resultado inevitable es un feedback más pobre del que los alumnos necesitan y análisis —como la trazabilidad entre SRS, diseño e interfaz— que directamente no se hacen. QHAWAY invierte la ecuación: el análisis exhaustivo lo hace la herramienta; el docente dedica su tiempo a validar, ajustar y enriquecer. El ahorro de tiempo es la consecuencia; el feedback rico es el objetivo.
+El problema que ataca es concreto: corregir a fondo un proyecto grupal multi-artefacto lleva alrededor de una hora, y lo más costoso no es detectar los problemas sino redactar la devolución. Con trece grupos y dos exposiciones anuales, el resultado inevitable es un feedback más pobre del que los alumnos necesitan y análisis —como la trazabilidad entre SRS (especificación de requisitos de software), diseño e interfaz— que directamente no se hacen. QHAWAY invierte la ecuación: el análisis exhaustivo lo hace la herramienta; el docente dedica su tiempo a validar, ajustar y enriquecer. El ahorro de tiempo es la consecuencia; el feedback rico es el objetivo.
 
 El principio rector del proyecto es innegociable: **la IA propone, el docente decide**. QHAWAY nunca asignará una calificación de forma autónoma; toda observación es un borrador que el docente acepta, edita o descarta. Frente al uso de IA por parte de los alumnos, el proyecto adopta una postura pedagógica explícita: no detectores de plagio —técnicamente poco confiables e injustos—, sino verificación de comprensión mediante un cuestionario de defensa generado a partir de la propia entrega de cada grupo.
 
-El MVP se acota deliberadamente a un caso real: la primera exposición anual de la materia **Algoritmos y Estructuras de Datos II** del ISFT N.º 179 (Buenos Aires), con validación en aula como criterio de éxito medible — corregir los trece grupos en menos de la mitad del tiempo actual, con devoluciones más detalladas, dentro de un presupuesto operativo de USD 20 mensuales. Las fases siguientes incorporan el análisis de código (segunda exposición), la generalización a otras materias y la apertura del proyecto, bajo licencia MIT, a la comunidad docente.
+El MVP se acota deliberadamente a un caso real: la primera exposición anual de la materia **Algoritmos y Estructuras de Datos II** del ISFT N.º 179 —Instituto Superior de Formación Técnica— (Buenos Aires), con validación en aula como criterio de éxito medible — corregir los trece grupos en menos de la mitad del tiempo actual, con devoluciones más detalladas, dentro de un presupuesto operativo de USD 20 mensuales. Las fases siguientes incorporan el análisis de código (segunda exposición), la generalización a otras materias y la apertura del proyecto, bajo licencia MIT, a la comunidad docente.
 
 ## 2. El problema
 
-Evaluar proyectos grupales de ingeniería de software es una de las tareas más valiosas y más costosas de la práctica docente. Cada entrega es un paquete de artefactos heterogéneos —una presentación institucional, un SRS según IEEE 830, un diseño funcional y una interfaz construida en Qt Designer— que deben evaluarse tanto individualmente como en conjunto.
+Evaluar proyectos grupales de ingeniería de software es una de las tareas más valiosas y más costosas de la práctica docente. Cada entrega es un paquete de artefactos heterogéneos —una presentación institucional, un SRS según IEEE 830 (el estándar clásico de especificación de requisitos de software), un diseño funcional y una interfaz construida en Qt Designer (el diseñador visual de interfaces del framework Qt)— que deben evaluarse tanto individualmente como en conjunto.
 
 En el caso concreto que origina este proyecto, la corrección completa de un grupo lleva **alrededor de una hora**. Con trece grupos y dos exposiciones anuales, son más de **26 horas por ciclo lectivo** dedicadas solo a corregir — y la parte que más tiempo consume no es detectar los problemas, sino **armar la devolución**: redactar para cada grupo qué debe mejorar y, sobre todo, por qué.
 
@@ -61,7 +68,7 @@ El MVP de QHAWAY se acota deliberadamente al caso concreto de la materia de orig
 
 - **Evaluación de los cuatro artefactos de la Exposición 1**: presentación de empresa, SRS/ERS (IEEE 830), diseño funcional y UI construida en Qt Designer.
 - **Formatos de entrada**: PDF, Word (.docx) y archivos `.ui` de Qt Designer.
-- **Análisis del archivo `.ui` como XML**: estructura de la interfaz, widgets utilizados y verificación de la convención de nomenclatura de objetos de uso extendido en la industria (notación de prefijos: `btn`, `txt`, `lbl`, `cmb`, etc.), configurable por el docente.
+- **Análisis del archivo `.ui` como XML**: estructura de la interfaz, widgets utilizados y verificación de la convención de nomenclatura de objetos adoptada por la cátedra (notación de prefijos: `btn`, `txt`, `lbl`, `cmb`, etc.), configurable por el docente.
 - **Rúbrica editable en archivo** (YAML): criterios y pesos definidos por el docente, editables a mano. Sin editor visual en el MVP.
 - **Proyecto modelo como calibración**: el sistema utiliza un proyecto de referencia completo como ejemplo del nivel de calidad esperado, sin tratarlo como única solución válida. En el MVP, el proyecto modelo es **SIMI/QUIPU IA**: el proyecto integrador completo (presentación de empresa ficticia, ERS, diseño funcional y UI) desarrollado por el propio docente como estándar de referencia de la materia.
 - **Checklist determinístico de completitud**: verificación automática (sin IA) de que cada documento contiene los bloques obligatorios.
@@ -110,7 +117,7 @@ El uso de QHAWAY se organiza en dos momentos: una **configuración inicial** que
 4. **Exportación**: con la corrección validada, QHAWAY genera dos salidas: el **informe de devolución para el grupo** (PDF con la plantilla visual configurada, sin las señales para indagar) y la **guía de defensa para el docente** (cuestionario de preguntas y puntos a profundizar en la exposición oral).
 5. **Cierre**: la evaluación queda registrada en el historial del grupo, disponible como contexto para la exposición siguiente.
 
-Este flujo garantiza que ninguna salida de la IA llegue a los alumnos sin pasar por el criterio del docente, y que el esfuerzo docente se concentre en el paso 3 —validar y enriquecer— en lugar de en la redacción desde cero.
+Este flujo garantiza —por diseño del propio sistema, no por promesa: la exportación solo se habilita cuando no quedan elementos pendientes de revisión (SRS, requisito EXP-03)— que ninguna salida de la IA llegue a los alumnos sin pasar por el criterio del docente, y que el esfuerzo docente se concentre en el paso 3 —validar y enriquecer— en lugar de en la redacción desde cero.
 
 ## 7. Modelo de evaluación
 
@@ -122,7 +129,7 @@ Comprobaciones exactas y reproducibles que no requieren interpretación: presenc
 
 ### Capa 2 — Evaluación por rúbrica, calibrada con el proyecto modelo
 
-La **rúbrica es la columna vertebral** de la evaluación: define qué se evalúa, con qué criterios y con qué pesos. Se organiza en secciones por artefacto más criterios transversales a la entrega completa. Cada criterio produce observaciones fundamentadas y una valoración parcial, que se componen en la **nota sugerida** — siempre como propuesta trazable: el docente puede ver cómo se llega al número, criterio por criterio. La escala de valoración y el mecanismo exacto de ponderación se especifican en el SRS del proyecto.
+La **rúbrica es la columna vertebral** de la evaluación: define qué se evalúa, con qué criterios y con qué pesos. Se organiza en secciones por artefacto más criterios transversales a la entrega completa. Cada criterio produce observaciones fundamentadas y una valoración parcial, que se componen en la **nota sugerida** — siempre como propuesta trazable: el docente puede ver cómo se llega al número, criterio por criterio. La escala de valoración y el mecanismo exacto de ponderación se especifican en el SRS del proyecto (requisito EVA-05 y Apéndices A y B).
 
 El **proyecto modelo actúa como calibración, no como plantilla**: le indica al sistema el nivel de calidad esperado, pero las entregas no se penalizan por resolver el problema de manera distinta. Dos diseños diferentes pueden ser igualmente correctos; lo que se evalúa es el cumplimiento de los criterios, no la similitud con la referencia.
 
