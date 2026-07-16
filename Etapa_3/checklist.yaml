@@ -1,0 +1,55 @@
+# QHAWAY — Checklist de completitud (CFG-05)
+# ============================================
+# EJEMPLO basado en los hallazgos de la Etapa 0.2 (estructura de 7 secciones).
+# REEMPLAZAR por los bloques reales que exige la consigna de la cátedra.
+# El matcheo es por palabras_clave (sinónimos), NUNCA por título exacto:
+# los títulos varían ("Definiciones y siglas" / "...y acrónimos").
+
+checklist:
+  srs:
+    requiere_caratula: true
+    requiere_indice: true
+    requiere_secciones_numeradas: true
+    bloques:
+      - id: introduccion
+        palabras_clave: ["introduccion", "proposito", "objetivo"]
+      - id: descripcion_general
+        palabras_clave: ["descripcion general", "vision general", "perspectiva del producto"]
+      - id: definiciones
+        palabras_clave: ["definiciones", "acronimos", "siglas", "glosario"]
+      - id: requerimientos_funcionales
+        palabras_clave: ["requerimientos funcionales", "requisitos funcionales"]
+      - id: requerimientos_no_funcionales
+        palabras_clave: ["requerimientos no funcionales", "requisitos no funcionales"]
+      - id: restricciones
+        palabras_clave: ["restricciones", "limitaciones"]
+      - id: interfaces
+        palabras_clave: ["interfaz", "interfaces"]
+      - id: referencias
+        palabras_clave: ["referencias", "bibliografia"]
+
+  presentacion:
+    requiere_caratula: true
+    requiere_indice: false
+    requiere_secciones_numeradas: false
+    bloques:
+      - id: empresa
+        palabras_clave: ["empresa", "organizacion"]
+      - id: mision_vision
+        palabras_clave: ["mision", "vision"]
+      - id: problema
+        palabras_clave: ["problema", "necesidad"]
+      - id: solucion
+        palabras_clave: ["solucion", "producto", "propuesta"]
+
+  fd:
+    requiere_caratula: true
+    requiere_indice: true
+    requiere_secciones_numeradas: true
+    bloques:
+      - id: pantallas
+        palabras_clave: ["pantallas", "interfaz de usuario", "mockups"]
+      - id: flujos
+        palabras_clave: ["flujo", "navegacion", "recorrido"]
+      - id: datos
+        palabras_clave: ["datos", "validaciones", "campos"]
