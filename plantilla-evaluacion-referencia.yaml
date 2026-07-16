@@ -1,0 +1,65 @@
+# QHAWAY — Plantilla de Evaluación de Referencia (Etapa 0.6)
+# ============================================================
+# UNA COPIA POR ENTREGA. Nombrar: referencia-<grupo>.yaml
+# Este archivo es el "patrón oro" contra el que se mide QHAWAY
+# (métrica de coincidencia: C1 nota, C2 cobertura, C3 niveles, C4 ruido).
+# Usar EXACTAMENTE los IDs y niveles de rubrica-aed2-expo1.yaml.
+
+evaluacion_referencia:
+  grupo: ""                    # ej: "Datear - EstacionAR"
+  exposicion: 1
+  destino: ""                  # iteracion | reservada  (3 iteración / 2 reservadas)
+  evaluada_por: "Christian"
+  fecha: ""                    # ej: "2026-07-15"
+
+  # ── Nivel por criterio (los 15) ─────────────────────────────
+  # Valores permitidos: Insuficiente | Regular | Bueno | Excelente
+  niveles:
+    # Presentación
+    PRE-IDN: ""
+    PRE-PRO: ""                # crítico
+    PRE-COM: ""
+    # SRS
+    SRS-EST: ""
+    SRS-REQ: ""                # crítico
+    SRS-RNF: ""
+    SRS-ALC: ""
+    SRS-DEF: ""
+    # Diseño funcional
+    FD-PAN: ""                 # crítico
+    FD-FLU: ""
+    FD-DAT: ""
+    FD-CON: ""
+    # UI (.ui de Qt Designer)
+    UI-NOM: ""
+    UI-COM: ""
+    UI-ORG: ""
+    # Transversales
+    TRZ-SRS-FD: ""             # crítico
+    TRZ-FD-UI: ""
+    TRZ-DOM: ""
+
+  # ── Nota final que le pusiste (entera, 1-10) ────────────────
+  # Anotá la que asignaste con tu criterio; si la regla de crítico
+  # aplicó (algún crítico Insuficiente → tope 6), indicalo.
+  nota_final:
+  aplico_tope_critico: false
+
+  # ── Tus observaciones (las que harías en la devolución) ─────
+  # critica: true = QHAWAY DEBE detectarla (C2 exige 100% de las críticas).
+  # Una entrada por observación; texto libre, breve; ubicacion = sección
+  # o elemento del documento (mismo formato que usará el sistema).
+  observaciones:
+    - criterio: ""             # ej: SRS-REQ
+      tipo: ""                 # fortaleza | mejora
+      critica: false
+      ubicacion: ""            # ej: "3 Requerimientos funcionales / RF-06"
+      texto: ""                # ej: "RF-06 no define la estructura tarifaria"
+    # (repetir el bloque por cada observación; sin mínimo ni máximo:
+    #  las que de verdad harías, ni más ni menos — C4 mide el ruido
+    #  contra ESTA lista)
+
+  # ── Notas libres (opcional) ─────────────────────────────────
+  # Contexto que quieras recordar: cómo fue la exposición oral,
+  # particularidades del grupo, etc. No entra en la métrica.
+  notas: ""
