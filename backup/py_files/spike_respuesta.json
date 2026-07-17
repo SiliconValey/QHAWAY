@@ -1,0 +1,142 @@
+{
+  "artefacto": "srs",
+  "valoraciones": [
+    {
+      "criterio_id": "SRS-REQ",
+      "nivel": "Regular",
+      "justificacion": "Los 15 requisitos funcionales cubren los procesos centrales del estacionamiento, pero presentan ambigüedades importantes: RF-05 no especifica qué se muestra ni cuándo; RF-06 no define cómo se estructuran las tarifas por tipo de vehículo ni la unidad de tiempo; RF-11 no indica el formato ni el contenido exacto de los reportes; RF-12 no precisa qué datos componen el ticket; RF-13 no define apertura/cierre de caja ni quién puede realizarla. Las condiciones de error y los criterios de aceptación están ausentes en prácticamente todos los requisitos."
+    },
+    {
+      "criterio_id": "SRS-EST",
+      "nivel": "Regular",
+      "justificacion": "El documento sigue una estructura parcialmente alineada con IEEE 830 (introducción, descripción general, RF, RNF) pero presenta desviaciones: el título es 'Documento de Diseño Funcional' en lugar de SRS/ERS; falta la sección de referencias (solo se menciona la sigla SRS en la tabla de acrónimos); las restricciones y la interfaz de usuario aparecen como secciones propias fuera de la estructura estándar; no hay criterios de aceptación formales. La sección 2 mezcla información de restricciones con descripción general."
+    },
+    {
+      "criterio_id": "SRS-RNF",
+      "nivel": "Regular",
+      "justificacion": "Se presentan 15 RNF con columna de métrica, lo cual es un esfuerzo notable. Sin embargo, varias métricas no son realmente medibles: RNF-04 ('Usuarios pueden operar sin capacitación externa') es subjetiva; RNF-06 ('0 duplicados permitidos') es una regla funcional, no métrica de calidad; RNF-07 ('Resultado inmediato') es vaga; RNF-08 ('Compatibilidad verificada') no especifica versión de Windows; RNF-09, RNF-10, RNF-11, RNF-12, RNF-13, RNF-14, RNF-15 tienen métricas nominales sin valor cuantificable. Solo RNF-01 y RNF-05 tienen métricas verdaderamente medibles."
+    }
+  ],
+  "observaciones": [
+    {
+      "criterio_id": "SRS-REQ",
+      "tipo": "fortaleza",
+      "contenido": "La cobertura funcional es amplia y coherente con el dominio: se identifican correctamente los procesos de ingreso, egreso, facturación, historial, reportes y gestión de usuarios, cubriendo el ciclo completo del estacionamiento.",
+      "referencia": {
+        "ubicacion": "3 Requerimientos funcionales",
+        "pagina": 2,
+        "cita": "RF-01 a RF-15"
+      }
+    },
+    {
+      "criterio_id": "SRS-REQ",
+      "tipo": "fortaleza",
+      "contenido": "RF-08 es el requisito más preciso del documento: define claramente la condición (patente no registrada dos veces simultáneamente) y es verificable de forma directa.",
+      "referencia": {
+        "ubicacion": "3 Requerimientos funcionales",
+        "pagina": 3,
+        "cita": "El sistema verificara que una patente no pueda registrarse dos veces simultáneamente dentro del estacionamiento"
+      }
+    },
+    {
+      "criterio_id": "SRS-REQ",
+      "tipo": "mejora",
+      "contenido": "RF-06 no especifica la estructura tarifaria: ¿la tarifa es por hora fraccionada o por hora completa? ¿varía por tipo de vehículo? Sin estos datos el requisito no es verificable ni implementable sin supuestos.",
+      "referencia": {
+        "ubicacion": "3 Requerimientos funcionales",
+        "pagina": 3,
+        "cita": "El sistema calculará el monto a pagar según el tiempo de estadia y el tipo de vehiculo"
+      }
+    },
+    {
+      "criterio_id": "SRS-REQ",
+      "tipo": "mejora",
+      "contenido": "Ningún requisito incluye condiciones de error o flujos alternativos (p. ej., qué ocurre si se intenta registrar salida de un vehículo que no tiene ingreso registrado). Esto genera vacíos importantes para el diseño.",
+      "referencia": {
+        "ubicacion": "3 Requerimientos funcionales",
+        "pagina": 2,
+        "cita": null
+      }
+    },
+    {
+      "criterio_id": "SRS-REQ",
+      "tipo": "mejora",
+      "contenido": "RF-11 no define el formato, contenido mínimo ni canal de entrega de los reportes (¿PDF, pantalla, CSV?). Sin esa precisión el requisito es ambiguo y difícil de verificar.",
+      "referencia": {
+        "ubicacion": "3 Requerimientos funcionales",
+        "pagina": 3,
+        "cita": "El sistema permitirá generar reportes diarios o mensuales de vehículos ingresados y recaudación."
+      }
+    },
+    {
+      "criterio_id": "SRS-EST",
+      "tipo": "fortaleza",
+      "contenido": "El documento incluye tabla de definiciones y acrónimos, tabla de perfiles de usuario, sección de aprobaciones con firma y fecha, e interfaz de usuario bosquejada, elementos que demuestran un esfuerzo de estructuración más allá del mínimo.",
+      "referencia": {
+        "ubicacion": "7 Aprobaciones",
+        "pagina": 6,
+        "cita": "ROL / NOMBRE / FIRMA / FECHA"
+      }
+    },
+    {
+      "criterio_id": "SRS-EST",
+      "tipo": "mejora",
+      "contenido": "El título del documento dice 'Documento de Diseño Funcional', lo que contradice su contenido como SRS. Esto puede generar confusión contractual con el cliente y con auditores.",
+      "referencia": {
+        "ubicacion": "Encabezado del documento",
+        "pagina": 1,
+        "cita": "Documento de Diseño Funcional"
+      }
+    },
+    {
+      "criterio_id": "SRS-EST",
+      "tipo": "mejora",
+      "contenido": "Falta la sección de referencias bibliográficas o normativas (p. ej., IEEE 830-1998). Su inclusión refuerza la trazabilidad del documento y es parte de la estructura estándar exigida.",
+      "referencia": {
+        "ubicacion": "1 Introduccion",
+        "pagina": 1,
+        "cita": null
+      }
+    },
+    {
+      "criterio_id": "SRS-RNF",
+      "tipo": "fortaleza",
+      "contenido": "RNF-01 y RNF-05 presentan métricas cuantitativas claras y verificables, que constituyen buenas prácticas a extender al resto del documento.",
+      "referencia": {
+        "ubicacion": "4 Requerimientos No Funcionales",
+        "pagina": 4,
+        "cita": "95% de respuestas < 2 s / 99% de disponibilidad"
+      }
+    },
+    {
+      "criterio_id": "SRS-RNF",
+      "tipo": "mejora",
+      "contenido": "RNF-08 indica 'Compatibilidad verificada' como métrica, pero no especifica la versión de Windows (10, 11, ambas) ni la arquitectura (32/64 bits). Sin ello, el criterio de aceptación es indefinido.",
+      "referencia": {
+        "ubicacion": "4 Requerimientos No Funcionales",
+        "pagina": 4,
+        "cita": "El sistema deberá ejecutarse en computadoras con Windows"
+      }
+    },
+    {
+      "criterio_id": "SRS-RNF",
+      "tipo": "mejora",
+      "contenido": "RNF-04 usa como métrica 'Usuarios pueden operar sin capacitación externa', pero la sección 2.3 exige 8 horas de capacitación, lo que genera una contradicción directa dentro del mismo documento.",
+      "referencia": {
+        "ubicacion": "2.3 Suposiciones y dependencias",
+        "pagina": 2,
+        "cita": "Se requiere capacitación de 8 horas al personal"
+      }
+    },
+    {
+      "criterio_id": "SRS-RNF",
+      "tipo": "mejora",
+      "contenido": "RNF-09, RNF-12, RNF-13, RNF-14 y RNF-15 tienen métricas cualitativas no medibles ('Documentación técnica disponible', 'Mensajes comprensibles', 'Validación visual', etc.). Deben reemplazarse por criterios cuantificables o pruebas de aceptación concretas.",
+      "referencia": {
+        "ubicacion": "4 Requerimientos No Funcionales",
+        "pagina": 4,
+        "cita": "Documentación técnica disponible / Mensajes comprensibles / Validación visual"
+      }
+    }
+  ]
+}

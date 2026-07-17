@@ -1,0 +1,46 @@
+# QHAWAY — Convención de nomenclatura de widgets (CFG-06)
+# =======================================================
+# EJEMPLO con los prefijos estándar de Qt.
+# REEMPLAZAR por la TABLA COMPLETA de la convención de la cátedra
+# (referencia 4 del SRS), que es un entregable del proyecto.
+#
+# Un objeto del .ui cuya clase esté acá y cuyo nombre NO empiece con el
+# prefijo indicado se reporta como no conforme (DET-04).
+
+nomenclatura:
+  prefijos:
+    QPushButton: btn
+    QToolButton: btn
+    QLineEdit: txt
+    QTextEdit: txt
+    QPlainTextEdit: txt
+    QLabel: lbl
+    QComboBox: cmb
+    QCheckBox: chk
+    QRadioButton: rad
+    QSpinBox: spn
+    QDoubleSpinBox: spn
+    QDateEdit: dte
+    QTableWidget: tbl
+    QTableView: tbl
+    QListWidget: lst
+    QListView: lst
+    QTreeWidget: tre
+    QGroupBox: grp
+    QTabWidget: tab
+    QProgressBar: prg
+    QSlider: sld
+    QMenu: mnu
+    QAction: act
+
+  # Clases estructurales que no se verifican (layouts, contenedores, form raíz).
+  ignorar:
+    - QWidget
+    - QMainWindow
+    - QDialog
+    - QFrame
+    - QVBoxLayout
+    - QHBoxLayout
+    - QGridLayout
+    - QFormLayout
+    - QSpacerItem

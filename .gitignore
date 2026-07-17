@@ -1,0 +1,14 @@
+API_Key.txt
+*.key
+venv/
+build/
+dist/
+files/
+files.zip
+__pycache__/
+.pytest_cache/
+qhaway.db
+qhaway.db-*
+qhaway-ciclos/
+Proyectos_Grupales/
+.claude/

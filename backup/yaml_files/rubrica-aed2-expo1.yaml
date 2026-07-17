@@ -1,0 +1,175 @@
+# QHAWAY — Rúbrica AED II — Proyecto anual — Exposición 1
+# BORRADOR para revisión del docente (Etapa 0.6)
+# Las descripciones por nivel son el insumo directo del prompt (EVA-01):
+# cuanto más concretas, mejor evalúa el sistema.
+
+rubrica:
+  nombre: "AED II — Proyecto anual — Exposición 1"
+  escala:
+    tope_por_critico: 6   # nota máxima si un criterio crítico da Insuficiente
+    # Niveles fijos del MVP: Insuficiente / Regular / Bueno / Excelente (CFG-01)
+
+  secciones:
+
+    - artefacto: presentacion
+      criterios:
+        - id: PRE-IDN
+          descripcion: "La empresa ficticia tiene identidad definida: nombre, rubro, contexto y a qué se dedica"
+          peso: 1
+          niveles:
+            Insuficiente: "No queda claro qué empresa es ni a qué se dedica"
+            Regular: "Identidad esbozada pero genérica; podría ser cualquier empresa"
+            Bueno: "Empresa reconocible con rubro y contexto claros, detalles menores sin definir"
+            Excelente: "Empresa completamente caracterizada: identidad, rubro, contexto y particularidades propias"
+        - id: PRE-PRO
+          descripcion: "El problema o necesidad del cliente está claramente planteado y justifica el sistema a construir"
+          peso: 2
+          critico: true
+          niveles:
+            Insuficiente: "No se plantea un problema o el sistema no responde a ninguna necesidad identificable"
+            Regular: "El problema se menciona pero de forma vaga; la conexión con el sistema propuesto es débil"
+            Bueno: "Problema concreto y bien conectado con el sistema, con aspectos menores sin justificar"
+            Excelente: "Problema específico del dominio, con consecuencias claras del estado actual, que justifica cada módulo del sistema propuesto"
+        - id: PRE-COM
+          descripcion: "Claridad comunicacional: orden, prolijidad y lenguaje apropiado"
+          peso: 1
+          niveles:
+            Insuficiente: "Desordenada, con errores que dificultan la comprensión"
+            Regular: "Comprensible pero descuidada en orden o redacción"
+            Bueno: "Prolija y clara, con detalles menores"
+            Excelente: "Comunicación profesional: orden lógico, redacción cuidada, sin errores"
+
+    - artefacto: srs
+      criterios:
+        - id: SRS-EST
+          descripcion: "El documento respeta la estructura IEEE 830 exigida por la cátedra"
+          peso: 1
+          niveles:
+            Insuficiente: "No sigue la estructura: faltan secciones fundamentales o el documento es otro tipo de artefacto"
+            Regular: "Estructura parcial: secciones faltantes (referencias, criterios de aceptación) o desordenadas"
+            Bueno: "Estructura correcta y completa, con detalles menores (numeración, títulos imprecisos)"
+            Excelente: "Estructura completa, ordenada y prolija, incluyendo referencias y criterios de aceptación"
+        - id: SRS-REQ
+          descripcion: "Los requisitos funcionales son completos, no ambiguos y verificables"
+          peso: 3
+          critico: true
+          niveles:
+            Insuficiente: "Requisitos ausentes, vagos o imposibles de verificar; no permiten diseñar el sistema"
+            Regular: "Requisitos presentes pero con ambigüedades importantes: términos sin definir, condiciones de error ausentes, comportamientos sin especificar"
+            Bueno: "Requisitos claros y verificables en su mayoría, con omisiones menores (algún flujo alternativo o condición de borde sin cubrir)"
+            Excelente: "Requisitos completos, precisos y verificables: cada uno especifica comportamiento, condiciones y resultado esperado sin ambigüedad"
+        - id: SRS-RNF
+          descripcion: "Los requisitos no funcionales son medibles y tienen métrica asociada"
+          peso: 2
+          niveles:
+            Insuficiente: "RNF ausentes o puramente declarativos, sin ninguna métrica"
+            Regular: "RNF presentes pero con métricas mayormente nominales o subjetivas ('interfaz intuitiva', 'sistema rápido')"
+            Bueno: "La mayoría de los RNF tiene métricas cuantificables reales; algunos quedan en lo declarativo"
+            Excelente: "Todos los RNF son medibles, con métricas cuantificables y verificables en una prueba concreta"
+        - id: SRS-ALC
+          descripcion: "El alcance define qué hace y qué NO hace el sistema, en coherencia con el problema planteado"
+          peso: 2
+          niveles:
+            Insuficiente: "Sin alcance definido, o el alcance no corresponde al problema de la presentación"
+            Regular: "Alcance solo positivo (qué hace), sin exclusiones explícitas, o con límites difusos"
+            Bueno: "Alcance claro con exclusiones explícitas, con algún límite discutible"
+            Excelente: "Alcance preciso en ambas direcciones, coherente con el problema y realista para el proyecto"
+        - id: SRS-DEF
+          descripcion: "Las definiciones y acrónimos son útiles, correctos y se usan consistentemente en el documento"
+          peso: 1
+          niveles:
+            Insuficiente: "Sin definiciones, o definiciones que contradicen el uso real de los términos"
+            Regular: "Tabla presente pero incompleta o con términos triviales en lugar de los del dominio"
+            Bueno: "Definiciones correctas de los términos del dominio, con omisiones menores"
+            Excelente: "Glosario completo del dominio, con términos usados de forma consistente en todo el documento"
+
+    - artefacto: fd
+      criterios:
+        - id: FD-PAN
+          descripcion: "Las pantallas descriptas cubren todos los procesos que el sistema debe soportar"
+          peso: 2
+          critico: true
+          niveles:
+            Insuficiente: "Pantallas ausentes o que no cubren los procesos centrales del sistema"
+            Regular: "Cobertura parcial: procesos importantes sin pantalla asignada, o pantallas sin descripción de contenido"
+            Bueno: "Todas las pantallas principales descriptas con su contenido, con vacíos menores"
+            Excelente: "Cobertura completa: cada proceso tiene su pantalla, con contenido, controles y propósito descriptos"
+        - id: FD-FLU
+          descripcion: "La navegación y los flujos entre pantallas están definidos"
+          peso: 2
+          niveles:
+            Insuficiente: "Sin ninguna indicación de cómo se navega entre pantallas"
+            Regular: "Flujos implícitos o solo parciales; no se puede reconstruir el recorrido del usuario"
+            Bueno: "Flujos principales definidos; faltan casos alternativos o retornos"
+            Excelente: "Navegación completa: flujos principales y alternativos, con el recorrido del usuario reconstruible de punta a punta"
+        - id: FD-DAT
+          descripcion: "Los datos que maneja cada pantalla y sus validaciones están especificados"
+          peso: 2
+          niveles:
+            Insuficiente: "Sin especificación de datos: no se sabe qué información maneja el sistema"
+            Regular: "Datos mencionados pero sin tipos, obligatoriedad ni validaciones"
+            Bueno: "Datos y validaciones principales especificados, con casos menores sin cubrir"
+            Excelente: "Especificación completa: campos, tipos, obligatoriedad y validaciones de cada pantalla"
+        - id: FD-CON
+          descripcion: "El documento es internamente consistente (las pantallas, datos y flujos no se contradicen entre sí)"
+          peso: 1
+          niveles:
+            Insuficiente: "Contradicciones graves: pantallas que se mencionan y no existen, datos que cambian de nombre"
+            Regular: "Varias inconsistencias menores que exigen interpretación del lector"
+            Bueno: "Consistente en lo esencial, con alguna discrepancia puntual"
+            Excelente: "Totalmente consistente: terminología, pantallas y datos coinciden en todo el documento"
+
+    - artefacto: ui
+      criterios:
+        - id: UI-NOM
+          descripcion: "Los objetos del .ui respetan la convención de prefijos de la cátedra"
+          peso: 1
+          niveles:
+            Insuficiente: "La mayoría de los objetos conserva nombres por defecto (pushButton_3) o no respeta la convención"
+            Regular: "Cumplimiento parcial: convención aplicada de forma inconsistente"
+            Bueno: "Cumplimiento casi total, con excepciones puntuales"
+            Excelente: "Todos los objetos nombrados según la convención, con nombres descriptivos"
+        - id: UI-COM
+          descripcion: "Las pantallas construidas en Qt Designer cubren las definidas para el sistema"
+          peso: 2
+          niveles:
+            Insuficiente: "Faltan las pantallas centrales del sistema"
+            Regular: "Pantallas principales presentes pero incompletas en controles o contenido"
+            Bueno: "Todas las pantallas principales construidas y completas, con detalles menores"
+            Excelente: "Todas las pantallas construidas, completas y con los controles que su función requiere"
+        - id: UI-ORG
+          descripcion: "Las pantallas están organizadas con criterio: layouts, etiquetas y disposición razonable"
+          peso: 1
+          niveles:
+            Insuficiente: "Controles sueltos sin layouts, sin etiquetas o con disposición caótica"
+            Regular: "Organización básica pero sin layouts consistentes o con etiquetas faltantes"
+            Bueno: "Buena organización con layouts, con detalles de alineación o etiquetado"
+            Excelente: "Pantallas profesionales: layouts correctos, etiquetas completas, disposición clara y coherente entre pantallas"
+
+  transversales:
+    criterios:
+      - id: TRZ-SRS-FD
+        descripcion: "Cada requisito funcional del SRS está reflejado en el diseño funcional"
+        peso: 3
+        critico: true
+        niveles:
+          Insuficiente: "La mayoría de los requisitos no tiene correlato en el FD, o el FD describe otro sistema"
+          Regular: "Trazabilidad parcial: varios requisitos sin pantalla ni proceso que los implemente"
+          Bueno: "Trazabilidad casi completa, con requisitos menores sin reflejo explícito"
+          Excelente: "Trazabilidad completa: cada requisito es rastreable a una pantalla o proceso del FD"
+      - id: TRZ-FD-UI
+        descripcion: "Las pantallas del diseño funcional corresponden a las construidas en el .ui"
+        peso: 2
+        niveles:
+          Insuficiente: "El .ui no corresponde a las pantallas del FD"
+          Regular: "Correspondencia parcial: pantallas del FD ausentes en el .ui o construidas con otro contenido"
+          Bueno: "Correspondencia casi completa, con diferencias menores de controles"
+          Excelente: "Correspondencia total: cada pantalla del FD existe en el .ui con los controles descriptos"
+      - id: TRZ-DOM
+        descripcion: "Los cuatro artefactos hablan del mismo sistema y la misma empresa, con terminología coherente"
+        peso: 1
+        niveles:
+          Insuficiente: "Los artefactos se contradicen: nombres, procesos o dominio distintos entre documentos"
+          Regular: "Mismo sistema pero con terminología inconsistente o módulos que aparecen y desaparecen"
+          Bueno: "Coherencia general con discrepancias puntuales de terminología"
+          Excelente: "Un solo sistema reconocible en los cuatro artefactos, con terminología idéntica"

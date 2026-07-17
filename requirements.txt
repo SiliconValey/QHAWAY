@@ -1,0 +1,13 @@
+# QHAWAY — dependencias
+# Instalar con:  pip install -r requirements.txt
+
+# Conector de IA (Etapa 4). Se importa como 'anthropic'.
+anthropic>=0.40
+
+# Extracción de contenido (Etapa 3).
+pymupdf>=1.24          # se importa como 'fitz'
+python-docx>=1.1       # se importa como 'docx'
+pyyaml>=6.0            # se importa como 'yaml'
+
+# Desarrollo / tests.
+pytest>=8.0
