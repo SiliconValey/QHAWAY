@@ -330,6 +330,13 @@ class ValoracionRepo:
             (evaluacion_id, criterio_id, nivel_ia, nivel_final),
         )
 
+    def fijar_nivel_final(self, evaluacion_id: int, criterio_id: str, nivel_final: str) -> None:
+        """El docente ajusta la valoración de un criterio (REV-04)."""
+        self.con.execute(
+            "UPDATE valoracion SET nivel_final = ? WHERE evaluacion_id = ? AND criterio_id = ?",
+            (nivel_final, evaluacion_id, criterio_id),
+        )
+
     def de_evaluacion(self, evaluacion_id: int) -> dict[str, dict[str, str | None]]:
         filas = self.con.execute(
             "SELECT criterio_id, nivel_ia, nivel_final FROM valoracion "
@@ -445,12 +452,48 @@ class ElementoRepo:
             (evaluacion_id,),
         ).fetchall()
 
+    def obtener(self, elemento_id: int) -> sqlite3.Row | None:
+        return self.con.execute(
+            "SELECT * FROM elemento WHERE id = ?", (elemento_id,)
+        ).fetchone()
+
+    def actualizar_revision(
+        self,
+        elemento_id: int,
+        estado_revision: str,
+        *,
+        contenido_final: str | None = None,
+        origen: str | None = None,
+    ) -> None:
+        """Actualiza el estado de revisión de un elemento (REV-02/05/07)."""
+        sets = ["estado_revision = ?"]
+        params: list = [estado_revision]
+        if contenido_final is not None:
+            sets.append("contenido_final = ?")
+            params.append(contenido_final)
+        if origen is not None:
+            sets.append("origen = ?")
+            params.append(origen)
+        params.append(elemento_id)
+        self.con.execute(
+            f"UPDATE elemento SET {', '.join(sets)} WHERE id = ?", params
+        )
+
     def pendientes(self, evaluacion_id: int) -> int:
         return self.con.execute(
             "SELECT COUNT(*) AS n FROM elemento WHERE evaluacion_id = ? "
             "AND estado_revision = 'pendiente'",
             (evaluacion_id,),
         ).fetchone()["n"]
+
+    def conteo_por_estado(self, evaluacion_id: int) -> dict[str, int]:
+        """Conteo por estado de revisión + origen, para métricas de retrabajo (REV-06)."""
+        filas = self.con.execute(
+            "SELECT estado_revision, origen, COUNT(*) AS n FROM elemento "
+            "WHERE evaluacion_id = ? GROUP BY estado_revision, origen",
+            (evaluacion_id,),
+        ).fetchall()
+        return {f"{f['estado_revision']}|{f['origen']}": f["n"] for f in filas}
 
 
 class ConsumoRepo:
@@ -483,6 +526,33 @@ class ConsumoRepo:
             "SELECT COALESCE(SUM(costo_estimado), 0.0) AS t FROM consumo_api"
         ).fetchone()
         return float(fila["t"])
+
+    def costo_de_evaluacion(self, evaluacion_id: int) -> float:
+        """Costo total de una evaluación (MON-02), sumando el de sus unidades."""
+        fila = self.con.execute(
+            "SELECT COALESCE(SUM(c.costo_estimado), 0.0) AS t FROM consumo_api c "
+            "JOIN analisis a ON a.id = c.analisis_id WHERE a.evaluacion_id = ?",
+            (evaluacion_id,),
+        ).fetchone()
+        return float(fila["t"])
+
+    def costo_del_mes(self, prefijo_mes: str) -> float:
+        """Costo acumulado de un mes calendario 'YYYY-MM' (MON-03)."""
+        fila = self.con.execute(
+            "SELECT COALESCE(SUM(costo_estimado), 0.0) AS t FROM consumo_api "
+            "WHERE fecha LIKE ?",
+            (prefijo_mes + "%",),
+        ).fetchone()
+        return float(fila["t"])
+
+    def historico_por_mes(self) -> list[sqlite3.Row]:
+        """Costo agrupado por mes (MON-04, histórico exportable)."""
+        return self.con.execute(
+            "SELECT substr(fecha, 1, 7) AS mes, "
+            "COALESCE(SUM(costo_estimado), 0.0) AS costo, COUNT(*) AS llamadas "
+            "FROM consumo_api WHERE fecha IS NOT NULL AND fecha != '' "
+            "GROUP BY mes ORDER BY mes"
+        ).fetchall()
 
 
 # ----------------------------------------------------------------------------

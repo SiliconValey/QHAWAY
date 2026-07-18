@@ -12,5 +12,12 @@ from .analizar_entrega import (
     ResultadoPipeline,
     analizar_entrega,
 )
+from . import revision, monitor
 
-__all__ = ["ContextoAnalisis", "ResultadoPipeline", "analizar_entrega"]
+__all__ = [
+    "ContextoAnalisis",
+    "ResultadoPipeline",
+    "analizar_entrega",
+    "revision",
+    "monitor",
+]

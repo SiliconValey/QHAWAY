@@ -1,6 +1,9 @@
 # QHAWAY — dependencias
 # Instalar con:  pip install -r requirements.txt
 
+# Interfaz gráfica (Etapa 7).
+PySide6>=6.6
+
 # Conector de IA (Etapa 4). Se importa como 'anthropic'.
 anthropic>=0.40
 
@@ -11,3 +14,4 @@ pyyaml>=6.0            # se importa como 'yaml'
 
 # Desarrollo / tests.
 pytest>=8.0
+pytest-qt>=4.4       # tests de humo de la UI (headless con QT_QPA_PLATFORM=offscreen)
