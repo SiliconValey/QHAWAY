@@ -17,6 +17,7 @@ pasada del subconjunto de iteración quede "a distancia razonable" del umbral.
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 
 from .niveles import Nivel
@@ -28,6 +29,29 @@ ORDEN_NIVEL: dict[Nivel, int] = {
     Nivel.BUENO: 2,
     Nivel.EXCELENTE: 3,
 }
+
+
+def moda_nivel(niveles: list[Nivel]) -> Nivel:
+    """Nivel mayoritario de una lista (agregación por moda, disciplina de corridas).
+
+    En caso de empate, devuelve el de menor orden (criterio conservador: ante la
+    duda, el nivel más bajo). Determinístico.
+    """
+    if not niveles:
+        raise ValueError("No hay niveles para agregar.")
+    conteo = Counter(niveles)
+    tope = max(conteo.values())
+    candidatos = [n for n, c in conteo.items() if c == tope]
+    return min(candidatos, key=lambda n: ORDEN_NIVEL[n])
+
+
+def agregar_corridas(corridas: list[dict[str, Nivel]]) -> dict[str, Nivel]:
+    """Agrega N corridas por moda, criterio por criterio (Etapa 0.7)."""
+    criterios = {cid for c in corridas for cid in c}
+    return {
+        cid: moda_nivel([c[cid] for c in corridas if cid in c])
+        for cid in criterios
+    }
 
 
 @dataclass(frozen=True)
@@ -48,6 +72,7 @@ class Coincidencia:
     exactas: int
     adyacentes: int
     lejanas: int
+    distancia_3: int                     # inversión total de juicio (descalificante, C3)
     criterios_comparados: int
     distancia_promedio: float
     criterios_lejanos: tuple[str, ...]  # los que conviene revisar
@@ -55,6 +80,22 @@ class Coincidencia:
     @property
     def proporcion_exactas(self) -> float:
         return self.exactas / self.criterios_comparados if self.criterios_comparados else 0.0
+
+    @property
+    def c1_nota_ok(self) -> bool:
+        """C1: nota sugerida dentro de ±1 de la nota docente."""
+        return self.diferencia_nota <= 1
+
+    @property
+    def proporcion_distancia_leq1(self) -> float:
+        """Proporción de criterios con distancia ≤ 1 (igual o adyacente)."""
+        if not self.criterios_comparados:
+            return 0.0
+        return (self.exactas + self.adyacentes) / self.criterios_comparados
+
+    def c3_valoracion_ok(self, *, umbral: float = 0.85) -> bool:
+        """C3: ≥ umbral de criterios con distancia ≤ 1 y CERO distancia 3."""
+        return self.proporcion_distancia_leq1 >= umbral and self.distancia_3 == 0
 
     def dentro_umbral(self, *, umbral_nota: int = 1, umbral_distancia: float = 0.5) -> bool:
         return (
@@ -69,7 +110,7 @@ def medir(
     valoraciones_ia: dict[str, Nivel],
 ) -> Coincidencia:
     """Compara una salida de IA contra el caso docente conocido."""
-    exactas = adyacentes = lejanas = 0
+    exactas = adyacentes = lejanas = distancia_3 = 0
     suma_distancias = 0
     comparados = 0
     lejanos: list[str] = []
@@ -88,6 +129,8 @@ def medir(
         else:
             lejanas += 1
             lejanos.append(cid)
+            if d == 3:
+                distancia_3 += 1  # Insuficiente↔Excelente: descalificante (C3)
 
     distancia_promedio = suma_distancias / comparados if comparados else 0.0
 
@@ -97,6 +140,7 @@ def medir(
         exactas=exactas,
         adyacentes=adyacentes,
         lejanas=lejanas,
+        distancia_3=distancia_3,
         criterios_comparados=comparados,
         distancia_promedio=distancia_promedio,
         criterios_lejanos=tuple(lejanos),

@@ -132,12 +132,14 @@ class Conector(ABC):
         *,
         politica: PoliticaReintentos = PoliticaReintentos(),
         precios: TablaPrecios | None = None,
+        temperatura: float = 0.0,
         dormir: Callable[[float], None] = time.sleep,
         reloj: Callable[[], str] = _ahora_iso,
     ) -> None:
         self.modelo = modelo
         self.politica = politica
         self.precios = precios or PRECIOS.get(modelo, PRECIOS["claude-sonnet-4-6"])
+        self.temperatura = temperatura  # 0 para un evaluador: mínima varianza
         self._dormir = dormir
         self._reloj = reloj
 
@@ -272,6 +274,7 @@ class ConectorAnthropic(Conector):
             resp = cliente.messages.create(
                 model=self.modelo,
                 max_tokens=self._max_tokens,
+                temperature=self.temperatura,
                 messages=[{"role": "user", "content": prompt}],
             )
         except Exception as e:  # errores de red/tasa -> reintentables

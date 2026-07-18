@@ -75,13 +75,18 @@ def analizar_entrega(
     *,
     on_progreso: Callable[[str, str], None] | None = None,
     reloj: Callable[[], str] = _hoy,
+    forzar_nueva: bool = False,
 ) -> ResultadoPipeline:
-    """Ejecuta (o reanuda) el análisis de una entrega. Idempotente por unidad."""
+    """Ejecuta (o reanuda) el análisis de una entrega. Idempotente por unidad.
+
+    `forzar_nueva=True` crea siempre una evaluación nueva en vez de reanudar la
+    existente (lo usa el arnés de calibración para hacer corridas independientes).
+    """
     con = ciclo.con
     progreso = on_progreso or (lambda unidad, estado: None)
 
     # --- Paso 1: Preparación (crea la evaluación y sus unidades si no existen) ---
-    evaluacion_id = _preparar(ciclo, entrega, contexto, reloj)
+    evaluacion_id = _preparar(ciclo, entrega, contexto, reloj, forzar_nueva=forzar_nueva)
 
     # --- Paso 2-3: Extracción + DET (local), solo de lo aún no procesado ------
     contenidos, ausentes = _extraer_y_detectar(ciclo, entrega, evaluacion_id, contexto, reloj)
@@ -117,11 +122,13 @@ def analizar_entrega(
     nota = None
 
     if interrumpido or pendientes:
-        _transicionar(con, ciclo, entrega.id, EstadoEvaluacion.ANALISIS_INTERRUMPIDO)
+        if not forzar_nueva:
+            _transicionar(con, ciclo, entrega.id, EstadoEvaluacion.ANALISIS_INTERRUMPIDO)
         estado_final = EstadoEvaluacion.ANALISIS_INTERRUMPIDO.value
     else:
         nota = _componer(ciclo, evaluacion_id, contexto)
-        _transicionar(con, ciclo, entrega.id, EstadoEvaluacion.BORRADOR_EN_REVISION)
+        if not forzar_nueva:
+            _transicionar(con, ciclo, entrega.id, EstadoEvaluacion.BORRADOR_EN_REVISION)
         estado_final = EstadoEvaluacion.BORRADOR_EN_REVISION.value
 
     return ResultadoPipeline(
@@ -137,18 +144,19 @@ def analizar_entrega(
 # ----------------------------------------------------------------------------
 # Paso 1 — Preparación
 # ----------------------------------------------------------------------------
-def _preparar(ciclo, entrega, contexto: ContextoAnalisis, reloj) -> int:
+def _preparar(ciclo, entrega, contexto: ContextoAnalisis, reloj, *, forzar_nueva=False) -> int:
     """Crea la evaluación y sus unidades (o reanuda una existente)."""
     # ¿Ya hay una evaluación activa (no validada) para esta entrega? -> reanudar.
-    fila = ciclo.con.execute(
-        "SELECT id FROM evaluacion WHERE entrega_id = ? AND nota_final IS NULL "
-        "ORDER BY id DESC LIMIT 1",
-        (entrega.id,),
-    ).fetchone()
-    if fila is not None:
-        # Reanudación: de análisis_interrumpido se vuelve a analizando (EVA-10).
-        _transicionar(ciclo.con, ciclo, entrega.id, EstadoEvaluacion.ANALIZANDO)
-        return int(fila["id"])
+    if not forzar_nueva:
+        fila = ciclo.con.execute(
+            "SELECT id FROM evaluacion WHERE entrega_id = ? AND nota_final IS NULL "
+            "ORDER BY id DESC LIMIT 1",
+            (entrega.id,),
+        ).fetchone()
+        if fila is not None:
+            # Reanudación: de análisis_interrumpido se vuelve a analizando (EVA-10).
+            _transicionar(ciclo.con, ciclo, entrega.id, EstadoEvaluacion.ANALIZANDO)
+            return int(fila["id"])
 
     with transaccion(ciclo.con):
         evaluacion_id = ciclo.evaluaciones.crear(
@@ -159,7 +167,9 @@ def _preparar(ciclo, entrega, contexto: ContextoAnalisis, reloj) -> int:
             ciclo.analisis.crear_unidad(evaluacion_id, artefacto, reloj())
         ciclo.analisis.crear_unidad(evaluacion_id, UNIDAD_TRANSVERSAL, reloj())
 
-    _transicionar(ciclo.con, ciclo, entrega.id, EstadoEvaluacion.ANALIZANDO)
+    # Las corridas de calibración no alteran el estado de la entrega (medición lateral).
+    if not forzar_nueva:
+        _transicionar(ciclo.con, ciclo, entrega.id, EstadoEvaluacion.ANALIZANDO)
     return evaluacion_id
 
 

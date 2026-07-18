@@ -4,6 +4,10 @@
 # Interfaz gráfica (Etapa 7).
 PySide6>=6.6
 
+# Informes HTML→PDF (Etapa 8).
+jinja2>=3.1
+weasyprint>=60          # requiere Pango/cairo del sistema (o se congela con PyInstaller)
+
 # Conector de IA (Etapa 4). Se importa como 'anthropic'.
 anthropic>=0.40
 
