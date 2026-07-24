@@ -15,6 +15,7 @@ de IA (DET-05).
 
 from __future__ import annotations
 
+import re
 import unicodedata
 from dataclasses import dataclass, field
 
@@ -222,6 +223,40 @@ def verificar_nomenclatura(
 # ----------------------------------------------------------------------------
 # Orquestación por artefacto
 # ----------------------------------------------------------------------------
+_RE_CODIGO_REQ = re.compile(r"\bR[NF]{1,2}-?\d+\b", re.IGNORECASE)
+
+
+def verificar_referencias_ui(arbol: ArbolUI) -> list[HallazgoDET]:
+    """Detecta códigos de requisito (RF-XX/RNF-XX) citados en tooltips/textos del .ui.
+
+    Señal forense: si el `.ui` referencia RF-06 pero el SRS entregado no lo define,
+    la interfaz fue trazada contra un documento de requisitos que no se entregó.
+    DET solo reporta los códigos hallados (hecho verificado); el cruce contra el
+    SRS lo hace la pasada transversal (que ve ambos artefactos).
+    """
+    codigos: list[str] = []
+    for texto in arbol.textos():
+        for m in _RE_CODIGO_REQ.finditer(texto):
+            cod = m.group(0).upper().replace(" ", "")
+            if cod not in codigos:
+                codigos.append(cod)
+
+    if not codigos:
+        return []
+    return [
+        HallazgoDET(
+            tipo="referencias_requisitos_ui",
+            artefacto=arbol.tipo_artefacto,
+            detalle=(
+                "La interfaz cita códigos de requisito en sus tooltips/textos: "
+                + ", ".join(codigos)
+                + ". Verificar que todos existan en el SRS entregado."
+            ),
+            datos={"codigos": codigos},
+        )
+    ]
+
+
 def ejecutar_det_documento(
     contenido: ContenidoDocumento, checklist: ChecklistDocumento
 ) -> list[HallazgoDET]:
@@ -235,5 +270,5 @@ def ejecutar_det_documento(
 def ejecutar_det_ui(
     arbol: ArbolUI, convencion: ConvencionNomenclatura
 ) -> list[HallazgoDET]:
-    """DET completo para el `.ui` (nomenclatura)."""
-    return verificar_nomenclatura(arbol, convencion)
+    """DET completo para el `.ui` (nomenclatura + referencias a requisitos)."""
+    return verificar_nomenclatura(arbol, convencion) + verificar_referencias_ui(arbol)

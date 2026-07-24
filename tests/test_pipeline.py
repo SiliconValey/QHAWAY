@@ -161,3 +161,48 @@ def test_desconexion_reanudacion_no_repaga(tmp_path):
     ).fetchone()["n"]
     assert consumos_srs_despues == 1
     c.cerrar()
+
+
+def test_transversal_con_criterios_de_trazabilidad(tmp_path):
+    """Rúbrica con sección transversal valorable (TRZ): se valora y compone nota."""
+    import json as _json
+    from qhaway.infra import NOMENCLATURA_DEFECTO
+    from qhaway.infra.conector_ia import ConectorFalso
+    from qhaway.servicios import ContextoAnalisis, analizar_entrega
+
+    c = crear_ciclo(tmp_path / "c", "ciclo")
+    gid = c.grupos.crear(c.ciclo_id, "G01", "N", "P")
+    grupo = c.grupos.obtener(gid)
+    entrega = c.entregas.crear_version(gid, 1, "2027-04-10", E.ENTREGA_CARGADA.value)
+    cv = c.carpeta_version(grupo, 1, 1)
+    (cv / "entrega").mkdir(parents=True, exist_ok=True)
+    (cv / "entrega" / "form.ui").write_text(UI_XML, encoding="utf-8")
+    c.archivos.agregar(entrega.id, "ui", c.rutas.relativa(cv / "entrega" / "form.ui"), "ui")
+
+    niveles = {n.value: "..." for n in Nivel}
+    rubrica = Rubrica.desde_dict({"rubrica": {"nombre": "R", "escala": {"tope_por_critico": 6},
+        "secciones": [
+            {"artefacto": "ui", "criterios": [
+                {"id": "UI-NOM", "descripcion": "d", "peso": 2, "niveles": niveles}]},
+            {"artefacto": "transversal", "criterios": [
+                {"id": "TRZ-DOM", "descripcion": "Trazabilidad", "peso": 1, "niveles": niveles}]},
+        ]}}, artefactos_requeridos=frozenset())
+    contexto = ContextoAnalisis(rubrica=rubrica, checklists={}, nomenclatura=NOMENCLATURA_DEFECTO)
+
+    resp_ui = _json.dumps({"artefacto": "ui", "valoraciones": [
+        {"criterio_id": "UI-NOM", "nivel": "Bueno", "justificacion": "x"}], "observaciones": []})
+    # La transversal ahora incluye valoraciones de trazabilidad
+    resp_trans = _json.dumps({
+        "valoraciones": [{"criterio_id": "TRZ-DOM", "nivel": "Regular", "justificacion": "x"}],
+        "consistencias": [], "senales": [],
+        "preguntas_defensa": [{"pregunta": "¿?", "elemento": "btnOk", "artefacto": "ui", "intencion": "x"}]})
+    conector = ConectorFalso([resp_ui, resp_trans], dormir=lambda s: None, reloj=lambda: "t")
+
+    r = analizar_entrega(c, grupo, entrega, contexto, conector)
+    assert r.estado_final == E.BORRADOR_EN_REVISION.value
+    assert r.nota is not None
+    # La valoración de trazabilidad quedó registrada
+    vals = c.valoraciones.de_evaluacion(r.evaluacion_id)
+    assert vals["TRZ-DOM"]["nivel_ia"] == Nivel.REGULAR.value
+    assert vals["UI-NOM"]["nivel_ia"] == Nivel.BUENO.value
+    c.cerrar()

@@ -60,6 +60,8 @@ class ResultadoPipeline:
     unidades_pendientes: list[str]
     nota: int | None
     costo_total: float
+    unidad_fallida: str | None = None
+    errores: tuple[str, ...] = ()
 
 
 def _hoy() -> str:
@@ -93,22 +95,26 @@ def analizar_entrega(
 
     # --- Paso 4-5: procesar unidades pendientes (EVA por artefacto, transversal) ---
     interrumpido = False
+    errores: tuple[str, ...] = ()
+    unidad_fallida = None
     for fila in ciclo.analisis.pendientes(evaluacion_id):
         unidad = fila["unidad"]
         progreso(unidad, "analizando")
 
         if unidad == UNIDAD_TRANSVERSAL:
-            ok = _procesar_transversal(
+            ok, errs = _procesar_transversal(
                 ciclo, evaluacion_id, fila["id"], contexto, conector, contenidos, reloj
             )
         else:
-            ok = _procesar_artefacto(
+            ok, errs = _procesar_artefacto(
                 ciclo, evaluacion_id, fila, contexto, conector,
                 contenidos, ausentes, reloj,
             )
 
         if not ok:
             interrumpido = True
+            errores = errs
+            unidad_fallida = unidad
             progreso(unidad, "interrumpido")
             break  # agotados los reintentos: se corta y queda reanudable (EVA-10)
         progreso(unidad, "completado")
@@ -138,6 +144,8 @@ def analizar_entrega(
         unidades_pendientes=pendientes,
         nota=nota,
         costo_total=ciclo.consumos.total_costo(),
+        unidad_fallida=unidad_fallida,
+        errores=errores,
     )
 
 
@@ -217,8 +225,8 @@ def _extraer_y_detectar(ciclo, entrega, evaluacion_id, contexto, reloj):
 # ----------------------------------------------------------------------------
 def _procesar_artefacto(
     ciclo, evaluacion_id, fila, contexto, conector, contenidos, ausentes, reloj
-) -> bool:
-    """Procesa una unidad de artefacto. Devuelve False si quedó pendiente (corte)."""
+) -> tuple[bool, tuple[str, ...]]:
+    """Procesa una unidad de artefacto. Devuelve (ok, errores) — ok=False si quedó pendiente."""
     artefacto = fila["unidad"]
     seccion = contexto.rubrica.seccion(artefacto)
     criterios = {c.id for c in seccion.criterios} if seccion else set()
@@ -229,7 +237,7 @@ def _procesar_artefacto(
             for cid in criterios:
                 ciclo.valoraciones.registrar(evaluacion_id, cid, Nivel.INSUFICIENTE.value, None)
             ciclo.analisis.marcar_completado(fila["id"], reloj())
-        return True
+        return True, ()
 
     # Artefacto presente: llamada a la IA.
     hallazgos = ciclo.hallazgos.de_evaluacion(evaluacion_id)
@@ -241,7 +249,7 @@ def _procesar_artefacto(
 
     if not resultado.completado:
         ciclo.analisis.incrementar_intento(fila["id"])
-        return False
+        return False, resultado.errores
 
     # Persistencia atómica de la unidad completada (EVA-10, RNF-06).
     r = resultado.resultado
@@ -256,7 +264,7 @@ def _procesar_artefacto(
                 referencia=o.referencia.ubicacion,
             )
         ciclo.analisis.marcar_completado(fila["id"], reloj())
-    return True
+    return True, ()
 
 
 # ----------------------------------------------------------------------------
@@ -264,17 +272,23 @@ def _procesar_artefacto(
 # ----------------------------------------------------------------------------
 def _procesar_transversal(
     ciclo, evaluacion_id, analisis_id, contexto, conector, contenidos, reloj
-) -> bool:
+) -> tuple[bool, tuple[str, ...]]:
+    seccion = contexto.rubrica.seccion("transversal")
+    criterios = {c.id for c in seccion.criterios} if seccion else set()
+
     prompt = _prompt_transversal(contexto, contenidos)
-    resultado = conector.analizar_transversal(prompt)
+    resultado = conector.analizar_transversal(prompt, criterios)
     _registrar_consumo(ciclo, analisis_id, resultado)
 
     if not resultado.completado:
         ciclo.analisis.incrementar_intento(analisis_id)
-        return False
+        return False, resultado.errores
 
     r = resultado.resultado
     with transaccion(ciclo.con):
+        # Valoraciones de trazabilidad (si la rúbrica las define)
+        for v in getattr(r, "valoraciones", ()):
+            ciclo.valoraciones.registrar(evaluacion_id, v.criterio_id, v.nivel.value, None)
         for c in r.consistencias:
             ciclo.elementos.crear(
                 evaluacion_id, "observacion",
@@ -290,7 +304,7 @@ def _procesar_transversal(
                 evaluacion_id, "senal", contenido_original=s.descripcion,
             )
         ciclo.analisis.marcar_completado(analisis_id, reloj())
-    return True
+    return True, ()
 
 
 # ----------------------------------------------------------------------------
@@ -347,7 +361,11 @@ def _texto_contenido(contenido) -> str:
     if isinstance(contenido, ContenidoDocumento):
         return contenido.texto[:8000]
     if isinstance(contenido, ArbolUI):
-        return "\n".join(f"{n.clase} {n.nombre or ''}" for n in contenido.widgets())
+        estructura = "\n".join(f"{n.clase} {n.nombre or ''}" for n in contenido.widgets())
+        textos = contenido.textos()
+        if textos:
+            estructura += "\n\nTextos y tooltips de la interfaz:\n" + "\n".join(f"- {t}" for t in textos)
+        return estructura
     return ""
 
 
@@ -372,8 +390,14 @@ def _prompt_artefacto(artefacto, seccion, contenido, contexto, hallazgos) -> str
 def _prompt_transversal(contexto, contenidos) -> str:
     from ..infra.prompts import PLANTILLAS
 
+    seccion = contexto.rubrica.seccion("transversal")
+    criterios = (
+        [{"id": c.id, "descripcion": c.descripcion, "niveles": c.niveles} for c in seccion.criterios]
+        if seccion else []
+    )
     ensamblado = PLANTILLAS["analisis_transversal"].render({
         "entrega": {t: _texto_contenido(c) for t, c in contenidos.items()},
         "cantidad_preguntas": contexto.cantidad_preguntas,
+        "criterios": criterios,
     })
     return ensamblado.texto

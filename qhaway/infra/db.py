@@ -23,9 +23,13 @@ def conectar(ruta_db: Path | str) -> sqlite3.Connection:
     - `journal_mode = WAL`: lecturas concurrentes con la escritura, y menos
       riesgo de corrupción ante cierre abrupto (RNF-06).
     """
-    con = sqlite3.connect(str(ruta_db), isolation_level=None)  # autocommit; las
-    con.row_factory = sqlite3.Row                              # transacciones se
-    con.execute("PRAGMA foreign_keys = ON")                    # manejan a mano
+    con = sqlite3.connect(
+        str(ruta_db),
+        isolation_level=None,      # autocommit; las transacciones se manejan a mano
+        check_same_thread=False,   # el worker de análisis corre en otro hilo (AD-08)
+    )
+    con.row_factory = sqlite3.Row
+    con.execute("PRAGMA foreign_keys = ON")
     con.execute("PRAGMA journal_mode = WAL")
     con.execute("PRAGMA synchronous = NORMAL")
     return con

@@ -82,6 +82,7 @@ class ResultadoTransversal:
     consistencias: tuple[Consistencia, ...]
     preguntas_defensa: tuple[PreguntaDefensa, ...]
     senales: tuple[Senal, ...]
+    valoraciones: tuple[ValoracionIA, ...] = ()   # criterios de trazabilidad (TRZ)
 
 
 @dataclass(frozen=True)
@@ -100,54 +101,82 @@ class Validacion:
 # Parseo tolerante del JSON del modelo
 # ----------------------------------------------------------------------------
 def parsear_json(texto: str) -> tuple[dict | None, str | None]:
-    """Parsea el JSON del modelo, tolerando cercas ```json ... ```.
+    """Parsea el JSON del modelo, tolerante con texto o markdown alrededor.
+
+    Estrategia: (1) intenta parsear directo; (2) si falla, quita cercas ```json;
+    (3) si aún falla, extrae el objeto entre la primera '{' y la última '}'. Esto
+    absorbe respuestas reales que vienen con preámbulo ("Aquí está el análisis:")
+    o comentarios finales, sin relajar la validación posterior del esquema.
 
     Devuelve (dict, None) o (None, mensaje_de_error).
     """
-    limpio = re.sub(r"^```(?:json)?|```$", "", texto.strip(), flags=re.MULTILINE).strip()
-    try:
-        data = json.loads(limpio)
-    except json.JSONDecodeError as e:
-        return None, f"JSON inválido: {e}"
-    if not isinstance(data, dict):
-        return None, "La respuesta no es un objeto JSON."
-    return data, None
+    candidatos = []
+    limpio = texto.strip()
+    candidatos.append(limpio)
+    # Sin cercas de markdown
+    sin_cercas = re.sub(r"^```(?:json)?|```$", "", limpio, flags=re.MULTILINE).strip()
+    candidatos.append(sin_cercas)
+    # Recorte al objeto más externo
+    ini, fin = sin_cercas.find("{"), sin_cercas.rfind("}")
+    if ini != -1 and fin != -1 and fin > ini:
+        candidatos.append(sin_cercas[ini:fin + 1])
+
+    ultimo_error = "respuesta vacía"
+    for cand in candidatos:
+        if not cand:
+            continue
+        try:
+            data = json.loads(cand)
+        except json.JSONDecodeError as e:
+            ultimo_error = str(e)
+            continue
+        if not isinstance(data, dict):
+            ultimo_error = "la respuesta no es un objeto JSON"
+            continue
+        return data, None
+    return None, f"JSON inválido: {ultimo_error}"
 
 
 # ----------------------------------------------------------------------------
 # Validación de la unidad por artefacto
 # ----------------------------------------------------------------------------
-def validar_artefacto(data: dict, criterios_esperados: set[str]) -> Validacion:
-    """Valida una respuesta `analisis_artefacto` (reglas 1, 2, 3, 5)."""
+def _validar_valoraciones(
+    data: dict, criterios_esperados: set[str]
+) -> tuple[list[ValoracionIA], list[str]]:
+    """Valida el array 'valoraciones' contra los criterios esperados (reglas 1, 2, 3).
+
+    Compartido por artefacto y transversal: ambos exigen exactamente una
+    valoración canónica por criterio de su sección.
+    """
     errores: list[str] = []
-
-    artefacto = data.get("artefacto", "")
-
-    # --- Valoraciones ---
     valoraciones: list[ValoracionIA] = []
     ids_valorados: list[str] = []
     for v in data.get("valoraciones", []):
         cid = v.get("criterio_id")
         ids_valorados.append(cid)
-        # Regla 2: criterio_id debe existir en la sección de rúbrica enviada.
-        if cid not in criterios_esperados:
+        if cid not in criterios_esperados:  # regla 2
             errores.append(f"Valoración con criterio desconocido: {cid!r}.")
-        # Regla 1: nivel dentro del enum canónico.
         nivel_txt = v.get("nivel")
-        if nivel_txt not in NOMBRES_CANONICOS:
+        if nivel_txt not in NOMBRES_CANONICOS:  # regla 1
             errores.append(f"Nivel fuera del enum canónico: {nivel_txt!r}.")
         else:
-            valoraciones.append(
-                ValoracionIA(cid, Nivel(nivel_txt), v.get("justificacion", ""))
-            )
+            valoraciones.append(ValoracionIA(cid, Nivel(nivel_txt), v.get("justificacion", "")))
 
-    # Regla 3: cada criterio exactamente una valoración (ni faltantes ni duplicadas).
-    faltantes = criterios_esperados - set(ids_valorados)
+    faltantes = criterios_esperados - set(ids_valorados)  # regla 3
     if faltantes:
         errores.append("Faltan valoraciones para: " + ", ".join(sorted(faltantes)) + ".")
     duplicados = [c for c in set(ids_valorados) if ids_valorados.count(c) > 1]
     if duplicados:
         errores.append("Valoraciones duplicadas para: " + ", ".join(sorted(duplicados)) + ".")
+    return valoraciones, errores
+
+
+def validar_artefacto(data: dict, criterios_esperados: set[str]) -> Validacion:
+    """Valida una respuesta `analisis_artefacto` (reglas 1, 2, 3, 5)."""
+    artefacto = data.get("artefacto", "")
+
+    # --- Valoraciones (reglas 1, 2, 3) ---
+    valoraciones, errores = _validar_valoraciones(data, criterios_esperados)
 
     # --- Observaciones (regla 5) ---
     observaciones: list[ObservacionIA] = []
@@ -196,9 +225,21 @@ def validar_artefacto(data: dict, criterios_esperados: set[str]) -> Validacion:
 # ----------------------------------------------------------------------------
 # Validación de la unidad transversal
 # ----------------------------------------------------------------------------
-def validar_transversal(data: dict) -> Validacion:
-    """Valida una respuesta `analisis_transversal` (reglas 4, 6)."""
+def validar_transversal(
+    data: dict, criterios_esperados: set[str] = frozenset()
+) -> Validacion:
+    """Valida una respuesta `analisis_transversal` (reglas 4, 6, y valoraciones TRZ).
+
+    Si la sección transversal de la rúbrica tiene criterios (trazabilidad), también
+    exige una valoración por cada uno (reglas 1, 2, 3), igual que un artefacto.
+    """
     errores: list[str] = []
+
+    # Valoraciones de trazabilidad (solo si la sección transversal tiene criterios).
+    valoraciones: list[ValoracionIA] = []
+    if criterios_esperados:
+        valoraciones, errores_val = _validar_valoraciones(data, criterios_esperados)
+        errores.extend(errores_val)
 
     consistencias = tuple(
         Consistencia(
@@ -254,5 +295,6 @@ def validar_transversal(data: dict) -> Validacion:
             consistencias=consistencias,
             preguntas_defensa=tuple(preguntas),
             senales=tuple(senales),
+            valoraciones=tuple(valoraciones),
         )
     )

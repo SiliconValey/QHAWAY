@@ -45,9 +45,15 @@ def test_orden_de_cacheo_estable_antes_que_variable():
     # lo estable va primero, lo variable al final (EVA-12).
     primer_variable = flags.index(False)
     assert all(not f for f in flags[primer_variable:])
-    # La entrega del grupo es el último bloque y NO es cacheable
-    assert ensamblado.bloques[-1].cacheable is False
-    assert "ENTREGA DEL GRUPO" in ensamblado.bloques[-1].texto
+
+
+def test_esqueleto_fuerza_las_valoraciones():
+    ensamblado = PLANTILLAS["analisis_artefacto"].render(_ctx_artefacto())
+    # El último bloque es el esqueleto JSON con el criterio ya adentro.
+    ultimo = ensamblado.bloques[-1].texto
+    assert "SRS-REQ" in ultimo            # el criterio viene pre-cargado
+    assert '"nivel": "___"' in ultimo     # slot a completar
+    assert "TAREA PRINCIPAL" in ultimo
 
 
 def test_bloques_cacheables_incluyen_rubrica_y_modelo():

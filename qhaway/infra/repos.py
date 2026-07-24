@@ -52,6 +52,26 @@ class CicloRepo:
         ).fetchone()
         return _a_ciclo(fila) if fila else None
 
+    def actualizar_parametros(
+        self, ciclo_id: int, *, nombre: str | None = None,
+        cantidad_preguntas: int | None = None, cantidad_exposiciones: int | None = None,
+        presupuesto_mensual: float | None = None,
+    ) -> None:
+        """Actualiza los parámetros del ciclo (CFG-10)."""
+        campos, params = [], []
+        for col, val in (
+            ("nombre", nombre), ("cantidad_preguntas", cantidad_preguntas),
+            ("cantidad_exposiciones", cantidad_exposiciones),
+            ("presupuesto_mensual", presupuesto_mensual),
+        ):
+            if val is not None:
+                campos.append(f"{col} = ?")
+                params.append(val)
+        if not campos:
+            return
+        params.append(ciclo_id)
+        self.con.execute(f"UPDATE ciclo SET {', '.join(campos)} WHERE id = ?", params)
+
 
 # ----------------------------------------------------------------------------
 # Grupo + Integrante (GRP-01, GRP-02, GRP-08)

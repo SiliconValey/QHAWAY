@@ -129,7 +129,32 @@ def _formatear_hallazgos(hallazgos: list[dict]) -> str:
 
 
 def _construir_artefacto(ctx: dict) -> tuple[BloquePrompt, ...]:
-    """analisis_artefacto: estable primero (rol, rúbrica, modelo), variable al final."""
+    """analisis_artefacto: estable primero (rol, rúbrica, modelo), variable al final.
+
+    La tarea principal (valorar cada criterio) se fuerza con un ESQUELETO JSON que
+    ya trae los criterios adentro: el modelo solo completa el nivel. Técnica
+    verificada contra entregas reales — sin ella, el modelo se vuelca a las
+    observaciones y devuelve 'valoraciones' vacío.
+    """
+    ids = [c["id"] for c in ctx["criterios"]]
+    slots = ",\n    ".join(
+        f'{{"criterio_id": "{i}", "nivel": "___", "justificacion": "___"}}' for i in ids
+    )
+    esqueleto = (
+        "TAREA PRINCIPAL (lo más importante): asignar un nivel a CADA UNO de los "
+        f"{len(ids)} criterios. Niveles válidos: Insuficiente, Regular, Bueno, Excelente.\n"
+        "Completá este esqueleto EXACTO, reemplazando cada \"___\" (no borres ni "
+        "agregues criterios):\n"
+        "{\n"
+        '  "artefacto": "' + ctx["artefacto"] + '",\n'
+        '  "valoraciones": [\n    ' + slots + "\n  ],\n"
+        '  "observaciones": []\n'
+        "}\n"
+        "Las observaciones son SECUNDARIAS: agregá las que veas necesarias al array "
+        "(cada una: {\"criterio_id\", \"tipo\": \"mejora\"|\"fortaleza\", \"contenido\", "
+        "\"referencia\": {\"ubicacion\", \"pagina\", \"cita\"}}), pero NUNCA a costa de "
+        "dejar una valoración sin completar. Respondé SOLO el JSON."
+    )
     return (
         # --- Bloques estables (cacheables): se repiten entre grupos ---
         BloquePrompt(_ROL_EVALUADOR, cacheable=True),
@@ -137,22 +162,25 @@ def _construir_artefacto(ctx: dict) -> tuple[BloquePrompt, ...]:
         BloquePrompt(_REFERENCIAS, cacheable=True),
         BloquePrompt(_formatear_rubrica(ctx["criterios"]), cacheable=True),
         BloquePrompt(f"Proyecto modelo (referencia de calidad):\n{ctx['modelo']}", cacheable=True),
-        BloquePrompt(
-            "Formato de salida OBLIGATORIO: objeto JSON 'analisis_artefacto' con "
-            "'artefacto', 'valoraciones' (una por criterio, con nivel canónico y "
-            "justificacion) y 'observaciones' (con referencia).",
-            cacheable=True,
-        ),
         # --- Bloques variables (no cacheables): cambian con cada grupo ---
         BloquePrompt(f"{_HALLAZGOS_DET}\n{_formatear_hallazgos(ctx['hallazgos_det'])}", cacheable=False),
         BloquePrompt(f"Artefacto '{ctx['artefacto']}' del grupo a evaluar:\n{ctx['entrega']}", cacheable=False),
+        # --- Esqueleto de salida (máxima saliencia): fuerza las valoraciones ---
+        BloquePrompt(esqueleto, cacheable=False),
     )
 
 
 def _construir_transversal(ctx: dict) -> tuple[BloquePrompt, ...]:
-    """analisis_transversal: instrucciones estables, entrega y resultados variables."""
+    """analisis_transversal: instrucciones estables, entrega y resultados variables.
+
+    Si la sección transversal tiene criterios (trazabilidad), se agrega el mismo
+    esqueleto de valoraciones que en los artefactos, para que el modelo los valore
+    y no solo genere preguntas/señales.
+    """
     entrega = "\n\n".join(f"[{t}]\n{txt}" for t, txt in ctx["entrega"].items())
-    return (
+    criterios = ctx.get("criterios", [])
+
+    bloques = [
         BloquePrompt(_ROL_EVALUADOR, cacheable=True),
         BloquePrompt(
             "Verificá la trazabilidad entre artefactos (EVA-07): cada requisito "
@@ -162,13 +190,35 @@ def _construir_transversal(ctx: dict) -> tuple[BloquePrompt, ...]:
         ),
         BloquePrompt(_REGLA_PREGUNTAS.format(cantidad_preguntas=ctx["cantidad_preguntas"]), cacheable=True),
         BloquePrompt(_REGLA_SENALES, cacheable=True),
-        BloquePrompt(
+    ]
+
+    if criterios:
+        ids = [c["id"] for c in criterios]
+        slots = ",\n    ".join(
+            f'{{"criterio_id": "{i}", "nivel": "___", "justificacion": "___"}}' for i in ids
+        )
+        bloques.append(BloquePrompt(_formatear_rubrica(criterios), cacheable=True))
+        bloques.append(BloquePrompt(
+            "TAREA PRINCIPAL: además de lo anterior, asigná un nivel a CADA UNO de "
+            f"los {len(ids)} criterios de trazabilidad. Completá este esqueleto EXACTO "
+            "(reemplazá cada \"___\"), sin omitir ninguno:\n"
+            "{\n"
+            '  "valoraciones": [\n    ' + slots + "\n  ],\n"
+            '  "consistencias": [ {"tipo","elemento","hallazgo"} ],\n'
+            '  "preguntas_defensa": [ {"pregunta","elemento","artefacto","intencion"} ],\n'
+            '  "senales": [ {"descripcion","artefacto","sugerencia"} ]\n'
+            "}\nNiveles válidos: Insuficiente, Regular, Bueno, Excelente. Respondé SOLO el JSON.",
+            cacheable=False,
+        ))
+    else:
+        bloques.append(BloquePrompt(
             "Formato de salida OBLIGATORIO: objeto JSON 'analisis_transversal' con "
             "'consistencias', 'preguntas_defensa' (con 'elemento' nombrado) y 'senales'.",
             cacheable=True,
-        ),
-        BloquePrompt(f"Entrega completa del grupo:\n{entrega}", cacheable=False),
-    )
+        ))
+
+    bloques.append(BloquePrompt(f"Entrega completa del grupo:\n{entrega}", cacheable=False))
+    return tuple(bloques)
 
 
 # ----------------------------------------------------------------------------

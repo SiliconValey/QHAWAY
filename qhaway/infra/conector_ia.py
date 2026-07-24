@@ -144,15 +144,17 @@ class Conector(ABC):
         self._reloj = reloj
 
     @abstractmethod
-    def _llamar(self, prompt: str) -> RespuestaCruda:
+    def _llamar(self, prompt: str, temperatura: float) -> RespuestaCruda:
         """Llamada de bajo nivel. Levanta ErrorTransitorio si es reintentable."""
 
     # --- Interfaz neutral que usan los servicios --------------------------
     def analizar_artefacto(self, prompt: str, criterios_esperados: set[str]) -> ResultadoLlamada:
         return self._ejecutar(prompt, lambda d: validar_artefacto(d, criterios_esperados))
 
-    def analizar_transversal(self, prompt: str) -> ResultadoLlamada:
-        return self._ejecutar(prompt, validar_transversal)
+    def analizar_transversal(
+        self, prompt: str, criterios_esperados: set[str] = frozenset()
+    ) -> ResultadoLlamada:
+        return self._ejecutar(prompt, lambda d: validar_transversal(d, criterios_esperados))
 
     # --- Máquina de reintentos (compartida) -------------------------------
     def _ejecutar(
@@ -162,8 +164,12 @@ class Conector(ABC):
         ultimos_errores: tuple[str, ...] = ()
 
         for intento in range(self.politica.reintentos + 1):
+            # El primer intento va a la temperatura base (0 = reproducible). Los
+            # reintentos suben un poco: a temperatura 0 repetirían el mismo fallo
+            # de validación, así que se les da margen para recuperarse.
+            temp = self.temperatura if intento == 0 else max(self.temperatura, 0.4)
             try:
-                cruda = self._llamar(prompt)
+                cruda = self._llamar(prompt, temp)
             except ErrorTransitorio as e:
                 # Falla de red: no hubo tokens, pero se registra el intento (MON-01).
                 consumos.append(
@@ -231,7 +237,7 @@ class ConectorFalso(Conector):
         self._guion = list(guion)
         self.llamadas = 0
 
-    def _llamar(self, prompt: str) -> RespuestaCruda:
+    def _llamar(self, prompt: str, temperatura: float = 0.0) -> RespuestaCruda:
         self.llamadas += 1
         if not self._guion:
             raise ErrorTransitorio("guion agotado")
@@ -255,7 +261,7 @@ class ConectorAnthropic(Conector):
     esta etapa la construcción fina del prompt es responsabilidad de Etapa 6.
     """
 
-    def __init__(self, api_key: str, *, max_tokens: int = 4096, **kw) -> None:
+    def __init__(self, api_key: str, *, max_tokens: int = 8192, **kw) -> None:
         super().__init__(**kw)
         self._api_key = api_key
         self._max_tokens = max_tokens
@@ -267,14 +273,14 @@ class ConectorAnthropic(Conector):
             self._cliente = anthropic.Anthropic(api_key=self._api_key)
         return self._cliente
 
-    def _llamar(self, prompt: str) -> RespuestaCruda:
+    def _llamar(self, prompt: str, temperatura: float = 0.0) -> RespuestaCruda:
         cliente = self._asegurar_cliente()
         try:
             import anthropic
             resp = cliente.messages.create(
                 model=self.modelo,
                 max_tokens=self._max_tokens,
-                temperature=self.temperatura,
+                temperature=temperatura,
                 messages=[{"role": "user", "content": prompt}],
             )
         except Exception as e:  # errores de red/tasa -> reintentables

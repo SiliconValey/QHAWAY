@@ -12,7 +12,7 @@ from .analizar_entrega import (
     ResultadoPipeline,
     analizar_entrega,
 )
-from . import revision, monitor, exportar, calibrar
+from . import revision, monitor, exportar, calibrar, gestion, cargar_entrega, configurar, consulta
 
 __all__ = [
     "ContextoAnalisis",
@@ -22,4 +22,8 @@ __all__ = [
     "monitor",
     "exportar",
     "calibrar",
+    "gestion",
+    "cargar_entrega",
+    "configurar",
+    "consulta",
 ]

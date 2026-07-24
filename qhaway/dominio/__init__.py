@@ -58,6 +58,7 @@ from .esquema_salidas import (
     validar_artefacto,
     validar_transversal,
 )
+from .clasificacion import Clasificacion, clasificar_texto
 from .calibracion import (
     CasoCalibracion,
     Coincidencia,
@@ -118,4 +119,6 @@ __all__ = [
     "ResumenCalibracion",
     "medir",
     "resumir",
+    "Clasificacion",
+    "clasificar_texto",
 ]

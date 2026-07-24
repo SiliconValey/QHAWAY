@@ -192,7 +192,26 @@ def _extraer_ui(ruta: Path, tipo_artefacto: str) -> ResultadoExtraccion:
 def _nodo_desde_elemento(elem: ET.Element) -> NodoUI:
     """Construye recursivamente el árbol de objetos desde un <widget>/<layout>."""
     hijos = tuple(_nodo_desde_elemento(c) for c in _hijos_estructurales(elem))
-    return NodoUI(clase=elem.get("class", ""), nombre=elem.get("name"), hijos=hijos)
+    return NodoUI(
+        clase=elem.get("class", ""),
+        nombre=elem.get("name"),
+        hijos=hijos,
+        tooltip=_propiedad(elem, "toolTip"),
+        texto=_propiedad(elem, "text"),
+    )
+
+
+def _propiedad(elem: ET.Element, nombre: str) -> str | None:
+    """Lee <property name="..."><string>valor</string></property> del widget.
+
+    Solo mira las propiedades directas del widget (no las de sus hijos).
+    """
+    for prop in elem.findall("property"):
+        if prop.get("name") == nombre:
+            s = prop.find("string")
+            if s is not None and s.text:
+                return s.text.strip()
+    return None
 
 
 def _hijos_estructurales(elem: ET.Element):

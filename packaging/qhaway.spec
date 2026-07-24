@@ -53,6 +53,7 @@ exe = EXE(
     pyz, a.scripts, [],
     exclude_binaries=True,
     name="qhaway",
+    icon="packaging/qhaway.ico",   # ícono del ejecutable
     console=False,          # --windowed: sin consola
     disable_windowed_traceback=False,
 )

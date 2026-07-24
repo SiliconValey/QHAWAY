@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
     QPushButton,
+    QSpinBox,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -24,21 +25,25 @@ from PySide6.QtWidgets import (
 )
 
 from ..servicios import revision
+from .dialogos import confirmar
 
 
 class VistaRevision(QWidget):
     """Presenta el borrador de una evaluación y permite validarlo (REV-01/02/07)."""
 
-    def __init__(self, ciclo, entrega_id: int, evaluacion_id: int, rubrica, parent=None):
+    def __init__(self, ciclo, entrega_id: int, evaluacion_id: int, rubrica, parent=None,
+                 *, solo_lectura: bool = False):
         super().__init__(parent)
         self.ciclo = ciclo
         self.entrega_id = entrega_id
         self.evaluacion_id = evaluacion_id
         self.rubrica = rubrica
+        self.solo_lectura = solo_lectura
 
         layout = QVBoxLayout(self)
 
         self.tabla = QTableWidget(0, 4, self)
+        self.tabla.setAlternatingRowColors(True)
         self.tabla.setHorizontalHeaderLabels(["Tipo", "Contenido", "Estado", "Origen"])
         layout.addWidget(self.tabla)
 
@@ -56,11 +61,29 @@ class VistaRevision(QWidget):
         self.lbl_estado = QLabel(self)
         layout.addWidget(self.lbl_estado)
 
+        # Nota final (REV-04): el docente confirma la nota antes de validar (EXP-03).
+        fila_nota = QHBoxLayout()
+        fila_nota.addWidget(QLabel("Nota final:", self))
+        self.spin_nota = QSpinBox(self)
+        self.spin_nota.setRange(1, 10)
+        self.btn_fijar_nota = QPushButton("Fijar nota final", self)
+        self.btn_fijar_nota.clicked.connect(self._fijar_nota)
+        fila_nota.addWidget(self.spin_nota)
+        fila_nota.addWidget(self.btn_fijar_nota)
+        layout.addLayout(fila_nota)
+
         self.btn_validar = QPushButton("Validar evaluación", self)
+        self.btn_validar.setProperty("class", "exito")
         self.btn_validar.clicked.connect(self._validar)
         layout.addWidget(self.btn_validar)
 
         self._ids: list[int] = []
+        self.confirmar = confirmar   # sustituible en tests
+        if self.solo_lectura:
+            for w in (self.btn_aceptar, self.btn_editar, self.btn_descartar,
+                      self.spin_nota, self.btn_fijar_nota, self.btn_validar):
+                w.setEnabled(False)
+                w.setVisible(False)
         self.refrescar()
 
     # --- Refresco de la vista ------------------------------------------------
@@ -78,6 +101,19 @@ class VistaRevision(QWidget):
         self.btn_validar.setEnabled(ok)
         pendientes = self.ciclo.elementos.pendientes(self.evaluacion_id)
         self.lbl_estado.setText(f"Pendientes: {pendientes} — {motivo}")
+
+        # Inicializar el spin con la nota final ya fijada o, si no, la sugerida.
+        ev = self.ciclo.evaluaciones.obtener(self.evaluacion_id)
+        if ev is not None and not getattr(self, "_nota_tocada", False):
+            nota = ev.nota_final if ev.nota_final is not None else ev.nota_sugerida
+            if nota is not None:
+                self.spin_nota.setValue(int(nota))
+
+    def _fijar_nota(self) -> None:
+        from datetime import date
+        self._nota_tocada = True
+        self.fijar_nota_final(self.spin_nota.value(), date.today().isoformat())
+        self.lbl_estado.setText(f"Nota final fijada en {self.spin_nota.value()}.")
 
     def _elemento_seleccionado(self) -> int | None:
         fila = self.tabla.currentRow()
@@ -130,6 +166,16 @@ class VistaRevision(QWidget):
             self.descartar(eid)
 
     def _validar(self) -> None:
+        nota = self.ciclo.evaluaciones.obtener(self.evaluacion_id)
+        nota_txt = f" con nota {nota.nota_final}" if nota and nota.nota_final is not None else ""
+        if not self.confirmar(
+            f"¿Validar esta evaluación{nota_txt}?",
+            titulo="Validar evaluación",
+            detalle="Queda cerrada para edición y habilita la exportación de los "
+                    "informes. Vas a poder consultarla desde la pestaña «Evaluados».",
+            parent=self, texto_aceptar="Sí, validar",
+        ):
+            return
         try:
             self.validar()
             QMessageBox.information(self, "QHAWAY", "Evaluación validada.")

@@ -133,6 +133,13 @@ def test_parseo_tolera_cercas_markdown():
     assert err is None and data == {"a": 1}
 
 
+def test_parseo_tolera_texto_alrededor():
+    # Respuesta real típica: preámbulo + JSON + comentario final.
+    texto = 'Claro, acá está el análisis:\n\n{"a": 1, "b": [2, 3]}\n\nEspero que sirva.'
+    data, err = parsear_json(texto)
+    assert err is None and data == {"a": 1, "b": [2, 3]}
+
+
 def test_parseo_json_invalido():
     data, err = parsear_json("no soy json")
     assert data is None and err is not None

@@ -149,3 +149,29 @@ def test_reproducibilidad_mismo_reporte():
     assert [h.datos for h in r1] == [h.datos for h in r2]
     assert len(r1) == 2
     assert [h.datos["nombre_actual"] for h in r1] == ["guardar", "nombre"]
+
+
+def test_extrae_tooltips_y_detecta_referencias_requisitos():
+    from qhaway.dominio.contenido import ArbolUI, NodoUI
+    from qhaway.dominio.deteccion import ejecutar_det_ui, verificar_referencias_ui
+    arbol = ArbolUI("ui", NodoUI("QWidget", "form", (
+        NodoUI("QPushButton", "btnCargar", tooltip="Cargar video (RF-01, RF-02)"),
+        NodoUI("QPushButton", "btnTraducir", tooltip="Traducir (RF-07)"),
+        NodoUI("QLabel", "lblOk", texto="Sin códigos acá"),
+    )))
+    # textos() reúne tooltips y textos
+    assert any("RF-01" in t for t in arbol.textos())
+    # DET detecta y deduplica los códigos citados
+    hallazgos = verificar_referencias_ui(arbol)
+    assert len(hallazgos) == 1
+    assert hallazgos[0].datos["codigos"] == ["RF-01", "RF-02", "RF-07"]
+    assert hallazgos[0].tipo == "referencias_requisitos_ui"
+
+
+def test_ui_sin_tooltips_no_genera_hallazgo_de_referencias():
+    from qhaway.dominio.contenido import ArbolUI, NodoUI
+    from qhaway.dominio.deteccion import verificar_referencias_ui
+    arbol = ArbolUI("ui", NodoUI("QWidget", "form", (
+        NodoUI("QPushButton", "btnOk"),
+    )))
+    assert verificar_referencias_ui(arbol) == []

@@ -93,6 +93,30 @@ def test_vista_monitor_muestra_presupuesto(qtbot, tmp_path):
                          costo_estimado=0.5, reintento=0, fecha="2027-04-10")
     vista = VistaMonitor(c, ev_id)
     qtbot.addWidget(vista)
-    assert "USD" in vista.lbl_presupuesto.text()
+    # El medidor recibió el presupuesto del ciclo
+    assert vista.barra._presupuesto > 0
     assert "0.5" in vista.lbl_costo_eval.text()
+    c.cerrar()
+
+
+def test_vista_revision_fija_nota_por_spinbox(qtbot, tmp_path):
+    """El control de nota final de la vista habilita la validación (EXP-03)."""
+    c, entrega, ev_id, (e1, e2, e3) = _setup(tmp_path)
+    vista = VistaRevision(c, entrega.id, ev_id, _rubrica())
+    qtbot.addWidget(vista)
+
+    for e in (e1, e2, e3):
+        vista.aceptar(e)
+    assert not vista.btn_validar.isEnabled()  # falta la nota
+
+    vista.spin_nota.setValue(7)
+    vista._fijar_nota()
+    assert vista.btn_validar.isEnabled()       # ahora sí
+
+    vista.validar()
+    estado = c.con.execute(
+        "SELECT estado FROM entrega WHERE id = ?", (entrega.id,)
+    ).fetchone()["estado"]
+    assert estado == E.EVALUACION_VALIDADA.value
+    assert c.evaluaciones.obtener(ev_id).nota_final == 7
     c.cerrar()

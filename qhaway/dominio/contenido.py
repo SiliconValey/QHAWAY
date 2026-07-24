@@ -60,6 +60,8 @@ class NodoUI:
     clase: str                   # p. ej. "QPushButton"
     nombre: str | None           # objectName; None si el widget no lo declara
     hijos: tuple["NodoUI", ...] = field(default_factory=tuple)
+    tooltip: str | None = None   # texto de <property name="toolTip"> (a menudo cita RF-XX)
+    texto: str | None = None     # texto visible del widget (property "text")
 
     def recorrer(self) -> Iterator["NodoUI"]:
         """Recorre el árbol en orden (depth-first, determinístico)."""
@@ -78,3 +80,13 @@ class ArbolUI:
     def widgets(self) -> Iterator[NodoUI]:
         if self.raiz is not None:
             yield from self.raiz.recorrer()
+
+    def textos(self) -> list[str]:
+        """Todos los tooltips y textos visibles del árbol (para prompt y DET)."""
+        out: list[str] = []
+        for n in self.widgets():
+            if n.tooltip:
+                out.append(n.tooltip)
+            if n.texto:
+                out.append(n.texto)
+        return out
